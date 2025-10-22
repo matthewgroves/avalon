@@ -109,9 +109,21 @@
 	- Cover happy path approvals, rejections, auto-fail trigger, mission fail thresholds (including mission four), and victory transitions.
 	- Verify invalid actions (wrong phase, wrong leader, duplicate players) raise appropriate errors.
 ### Phase 4: Mission Execution
-- Implement mission success/fail card submissions with alignment-based rules (minions may fail, resistance must succeed).
-- Handle special cases: mission 4 requiring two fails in 7+ player games; Oberon knowledge handling.
-- Update mission history, success/failure scoreboard, and check for win thresholds after each mission.
+- [x] **Mission Action Modeling**
+	- Add lightweight dataclasses to capture individual mission card submissions while keeping them private to the engine.
+	- Ensure stored actions remain detached from public state representations to avoid information leaks.
+- [x] **Public Mission Summaries**
+	- Provide sanitized mission summaries that reveal only aggregate information (result, fail counts, auto-fail status).
+	- Expose helpers on `GameState` to access public mission history snapshots for UI/agent consumption.
+- [x] **Mission Recording Enhancements**
+	- Persist private mission actions alongside existing `MissionRecord` metadata for analytics and replay.
+	- Randomize or obfuscate action ordering where necessary to preserve secrecy.
+- [x] **Validation & Edge Cases**
+	- Confirm mission four fail-threshold logic and auto-fail behaviors still operate with the new recording pipeline.
+	- Extend error handling to surface clear diagnostics when submissions are malformed.
+- [x] **Unit Tests**
+	- Add focused tests covering the new public/private mission representations and failure scenarios.
+	- Verify that sanitized summaries exclude identifying data while preserving statistical accuracy.
 
 ### Phase 5: Assassination & Endgame
 - Trigger assassination phase when resistance reaches three successes and assassin role exists.

@@ -8,9 +8,11 @@ from avalon.exceptions import InvalidActionError
 from avalon.game_state import (
     GamePhase,
     GameState,
+    MissionAction,
     MissionDecision,
     MissionRecord,
     MissionResult,
+    MissionSummary,
 )
 from avalon.setup import PlayerRegistration, perform_setup
 
@@ -238,6 +240,8 @@ def test_mission_success_increments_resistance_and_advances_round() -> None:
     team = _team_members(state, team_size)
     record = _run_mission(state, team, {pid: MissionDecision.SUCCESS for pid in team})
     assert record.result is MissionResult.SUCCESS
+    assert len(record.actions) == len(team)
+    assert all(isinstance(action, MissionAction) for action in record.actions)
     assert state.resistance_score == 1
     assert state.round_number == 2
     assert state.phase is GamePhase.TEAM_PROPOSAL
@@ -363,3 +367,51 @@ def test_invalid_phase_actions_raise_errors() -> None:
     state.propose_team(state.current_leader.player_id, team)
     with pytest.raises(InvalidActionError):
         state.submit_mission({pid: MissionDecision.SUCCESS for pid in team})
+
+
+def test_public_mission_summary_masks_private_actions() -> None:
+    state = _default_state(5)
+    team_size = state.config.mission_config.team_sizes[state.round_number - 1]
+    team = _team_with_minion(state, team_size)
+    decisions = {pid: MissionDecision.SUCCESS for pid in team}
+    failing_minion = next(
+        pid for pid in team if state.players_by_id[pid].alignment is Alignment.MINION
+    )
+    decisions[failing_minion] = MissionDecision.FAIL
+    record = _run_mission(state, team, decisions)
+    public_history = state.public_missions
+    assert public_history
+    summary = public_history[-1]
+    assert isinstance(summary, MissionSummary)
+    assert summary.fail_count == record.fail_count
+    assert summary.team == record.team
+    assert not hasattr(summary, "actions")
+
+
+def test_private_actions_are_obfuscated_but_deterministic() -> None:
+    state_one = _default_state(7, seed=17)
+    state_two = _default_state(7, seed=17)
+    team_size = state_one.config.mission_config.team_sizes[state_one.round_number - 1]
+    team = _team_members(state_one, team_size)
+    record_one = _run_mission(state_one, team, {pid: MissionDecision.SUCCESS for pid in team})
+    record_two = _run_mission(state_two, team, {pid: MissionDecision.SUCCESS for pid in team})
+    seq_one = tuple(action.player_id for action in record_one.actions)
+    seq_two = tuple(action.player_id for action in record_two.actions)
+    assert seq_one == seq_two
+    assert sorted(seq_one) == sorted(team)
+
+
+def test_auto_fail_summary_flagged_publicly() -> None:
+    state = _default_state(5)
+    record = None
+    for _ in range(5):
+        team_size = state.config.mission_config.team_sizes[state.round_number - 1]
+        team = _team_members(state, team_size)
+        state.propose_team(state.current_leader.player_id, team)
+        votes = {player.player_id: False for player in state.players}
+        record = state.vote_on_team(votes)
+    assert record is not None
+    assert state.public_missions
+    summary = state.public_missions[-1]
+    assert summary.auto_fail
+    assert summary.fail_count == 0

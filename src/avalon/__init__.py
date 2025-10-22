@@ -4,9 +4,11 @@ from .config import GameConfig, MissionConfig
 from .game_state import (
     GamePhase,
     GameState,
+    MissionAction,
     MissionDecision,
     MissionRecord,
     MissionResult,
+    MissionSummary,
     VoteRecord,
 )
 from .knowledge import KnowledgePacket, compute_setup_knowledge
@@ -32,9 +34,11 @@ __all__ = [
     "GameState",
     "KnowledgePacket",
     "MissionConfig",
+    "MissionAction",
     "MissionDecision",
     "MissionRecord",
     "MissionResult",
+    "MissionSummary",
     "Player",
     "PlayerId",
     "PlayerBriefing",

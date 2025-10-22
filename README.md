@@ -30,7 +30,7 @@ Avalon is a Python implementation of the Resistance: Avalon board game. The proj
 - Knowledge packet generator for setup vision (`avalon.knowledge`).
 - Mission and game configuration models with official rule validation (`avalon.config`).
 - Setup orchestration producing role assignments, player objects, and knowledge briefings (`avalon.setup`).
-- Game state finite-state machine covering team proposals, voting, mission resolution, auto-fail handling, and scoring (`avalon.game_state`).
+- Game state finite-state machine covering team proposals, voting, mission resolution, auto-fail handling, scoring, and mission action/public summary logging (`avalon.game_state`).
 - Unit tests covering configuration, setup, and comprehensive game state scenarios.
 
 ## Next Steps

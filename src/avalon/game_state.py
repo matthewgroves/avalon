@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, Mapping, Optional, Sequence, Tuple
@@ -51,6 +52,27 @@ class VoteRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class MissionAction:
+    """Private record tying a mission card to the submitting player."""
+
+    player_id: PlayerId
+    decision: MissionDecision
+
+
+@dataclass(frozen=True, slots=True)
+class MissionSummary:
+    """Public mission data safe to expose to players and observers."""
+
+    round_number: int
+    attempt_number: int
+    team: Tuple[PlayerId, ...]
+    fail_count: int
+    required_fail_count: int
+    result: MissionResult
+    auto_fail: bool
+
+
+@dataclass(frozen=True, slots=True)
 class MissionRecord:
     """Aggregated record for a completed mission attempt."""
 
@@ -61,6 +83,20 @@ class MissionRecord:
     required_fail_count: int
     result: MissionResult
     auto_fail: bool = False
+    actions: Tuple[MissionAction, ...] = ()
+
+    def to_public_summary(self) -> MissionSummary:
+        """Return an aggregated mission view without private card data."""
+
+        return MissionSummary(
+            round_number=self.round_number,
+            attempt_number=self.attempt_number,
+            team=self.team,
+            fail_count=self.fail_count,
+            required_fail_count=self.required_fail_count,
+            result=self.result,
+            auto_fail=self.auto_fail,
+        )
 
 
 @dataclass(slots=True)
@@ -127,6 +163,12 @@ class GameState:
         """Return an immutable snapshot of completed missions."""
 
         return tuple(self.mission_history)
+
+    @property
+    def public_missions(self) -> Tuple[MissionSummary, ...]:
+        """Return sanitized mission summaries for public consumption."""
+
+        return tuple(record.to_public_summary() for record in self.mission_history)
 
     def propose_team(self, leader_id: PlayerId, team: Sequence[PlayerId]) -> Tuple[PlayerId, ...]:
         """Propose a mission team for the current round."""
@@ -208,7 +250,9 @@ class GameState:
             raise InvalidActionError("Mission decisions must be submitted by the mission team only")
 
         fail_count = 0
-        for player_id, decision in decisions.items():
+        actions = []
+        for player_id in self.current_team:
+            decision = decisions[player_id]
             player = self._players_by_id[player_id]
             if decision not in (MissionDecision.SUCCESS, MissionDecision.FAIL):
                 raise InvalidActionError("Mission decisions must be SUCCESS or FAIL")
@@ -216,10 +260,16 @@ class GameState:
                 raise InvalidActionError("Resistance players may not fail missions")
             if decision is MissionDecision.FAIL:
                 fail_count += 1
+            actions.append(MissionAction(player_id=player_id, decision=decision))
 
         required_fails = self._required_fail_count()
         mission_success = fail_count < required_fails
         result = MissionResult.SUCCESS if mission_success else MissionResult.FAILURE
+        obfuscated_actions = self._obfuscate_actions(
+            actions,
+            round_number=self.round_number,
+            attempt_number=self.attempt_number,
+        )
         record = MissionRecord(
             round_number=self.round_number,
             attempt_number=self.attempt_number,
@@ -227,6 +277,7 @@ class GameState:
             fail_count=fail_count,
             required_fail_count=required_fails,
             result=result,
+            actions=obfuscated_actions,
         )
         self.mission_history.append(record)
         self.current_team = None
@@ -272,6 +323,7 @@ class GameState:
             required_fail_count=required_fails,
             result=MissionResult.FAILURE,
             auto_fail=True,
+            actions=(),
         )
         self.mission_history.append(record)
         self.current_team = None
@@ -310,3 +362,16 @@ class GameState:
             raise InvalidActionError(
                 f"Action requires phase {expected.value}, current phase is {self.phase.value}"
             )
+
+    def _obfuscate_actions(
+        self,
+        actions: Sequence[MissionAction],
+        *,
+        round_number: int,
+        attempt_number: int,
+    ) -> Tuple[MissionAction, ...]:
+        obfuscated = list(actions)
+        base_seed = self.seed if self.seed is not None else 0
+        combined_seed = (base_seed << 32) ^ (round_number << 8) ^ attempt_number
+        random.Random(combined_seed).shuffle(obfuscated)
+        return tuple(obfuscated)
