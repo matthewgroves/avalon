@@ -136,7 +136,7 @@ def _reach_round_four_state(seed: int = 37) -> GameState:
     _run_mission(state, team_three, decisions)
 
     assert state.round_number == 4
-    assert state.phase is GamePhase.ASSASSINATION_PENDING
+    assert state.phase is GamePhase.TEAM_PROPOSAL
     assert state.resistance_score == 2
     assert state.minion_score == 1
     return state
@@ -277,7 +277,7 @@ def test_resistance_reaches_three_successes_moves_to_assassination_when_assassin
         _run_mission(state, team, {pid: MissionDecision.SUCCESS for pid in team})
     assert state.resistance_score == 3
     assert state.provisional_winner is Alignment.RESISTANCE
-    assert state.phase is GamePhase.TEAM_PROPOSAL
+    assert state.phase is GamePhase.ASSASSINATION_PENDING
     assert state.final_winner is None
     assert state.assassin_ids
 
@@ -368,6 +368,32 @@ def test_assassination_only_resolves_once() -> None:
     state.perform_assassination(assassin_id, merlin_id)
     with pytest.raises(InvalidActionError):
         state.perform_assassination(assassin_id, merlin_id)
+
+
+def test_assassin_cannot_target_unknown_player() -> None:
+    state = _default_state(5)
+    assassin_id = _player_id_for_role(state, RoleType.ASSASSIN)
+    for _ in range(3):
+        team_size = state.config.mission_config.team_sizes[state.round_number - 1]
+        team = _team_members(state, team_size)
+        _run_mission(state, team, {pid: MissionDecision.SUCCESS for pid in team})
+    with pytest.raises(InvalidActionError):
+        state.perform_assassination(assassin_id, "not-a-player")
+
+
+def test_actions_blocked_once_game_over() -> None:
+    state = _default_state(5)
+    assassin_id = _player_id_for_role(state, RoleType.ASSASSIN)
+    merlin_id = _player_id_for_role(state, RoleType.MERLIN)
+    for _ in range(3):
+        team_size = state.config.mission_config.team_sizes[state.round_number - 1]
+        team = _team_members(state, team_size)
+        _run_mission(state, team, {pid: MissionDecision.SUCCESS for pid in team})
+    state.perform_assassination(assassin_id, merlin_id)
+    team_size = state.config.mission_config.team_sizes[0]
+    team = _team_members(state, team_size)
+    with pytest.raises(InvalidActionError):
+        state.propose_team(state.current_leader.player_id, team)
 
 
 def test_mission_four_requires_two_fail_cards() -> None:

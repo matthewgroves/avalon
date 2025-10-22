@@ -126,21 +126,16 @@
 	- Verify that sanitized summaries exclude identifying data while preserving statistical accuracy.
 
 ### Phase 5: Assassination & Endgame
-- [ ] **Assassination Trigger Conditions**
-	- Detect resistance reaching three successes when an assassin-aligned role is present.
-	- Surface a public state flag and record provisional victory for the resistance pending the assassination outcome.
-- [ ] **Assassin Action Interface**
-	- Add APIs on `GameState` to initiate assassination, validate assassin identity, and accept a Merlin target selection.
-	- Prevent repeated assassination attempts and guard against invalid targets (non-merlin, unknown ids).
-- [ ] **Outcome Resolution**
-	- Resolve assassin guesses by revealing Merlin status and updating the final winner accordingly.
-	- Record assassination results in mission history or a dedicated log for replay fidelity.
-- [ ] **Final State Guardrails**
-	- Ensure no further game actions are allowed once the final winner is set.
-	- Extend error handling for attempts to assassinate without pending conditions.
-- [ ] **Unit Tests**
-	- Cover assassin success and failure paths, including invalid target scenarios.
-	- Verify that auto-fail victories and three-mission failures still bypass the assassination phase.
+- [x] **Assassination Trigger Conditions**
+	- Resistance reaching three successes now pushes `GameState` into `ASSASSINATION_PENDING` when an assassin-tagged role exists, retaining provisional victory metadata.
+- [x] **Assassin Action Interface**
+	- `perform_assassination` validates assassin identity, accepts a Merlin guess, blocks duplicate resolutions, and rejects unknown targets.
+- [x] **Outcome Resolution**
+	- Assassination outcomes set the final winner and persist an `AssassinationRecord` for replay fidelity.
+- [x] **Final State Guardrails**
+	- `_ensure_phase` short-circuits further actions after `GAME_OVER`, covering assassination and post-game command attempts.
+- [x] **Unit Tests**
+	- Added scenarios for correct/incorrect guesses, invalid targets, single-resolution enforcement, and bypass cases for auto-fail or minion victories.
 
 ### Phase 6: Interaction Layer MVP
 - Create CLI interface supporting human input with privacy management (e.g., hidden prompts for votes, mission choices).
