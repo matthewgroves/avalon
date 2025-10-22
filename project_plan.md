@@ -87,10 +87,27 @@
 	- Confirm validation errors trigger on incorrect player counts or duplicate registrations.
 
 ### Phase 3: Turn & Phase Management
-- Build finite state machine to manage phases with explicit transition methods.
-- Implement leader rotation, team nomination handling, validation of team sizes, and nomination history storage.
-- Add voting system: collect secret votes, reveal aggregated outcome, track consecutive rejections (ending at 5).
-
+- [x] **Phase & Outcome Modeling**
+	- Introduce enums for game phases and mission outcomes.
+	- Define vote and mission record dataclasses capturing round/attempt metadata and aggregate results.
+- [x] **Game State Core**
+	- Implement `GameState` with player roster, round tracking, leader index, mission/vote history, and scoreboard.
+	- Compute assassin presence flag and provide lookup helpers for players by id.
+- [x] **Team Proposal Flow**
+	- Validate leader authority, enforce team sizes per mission, and prevent duplicate or invalid player selections.
+	- Transition state to voting phase with stored proposal.
+- [x] **Voting Mechanics**
+	- Collect simultaneous votes, compute approval majority, persist vote records, and handle leader rotation.
+	- Detect five consecutive rejections and auto-fail the mission per official rules.
+- [x] **Mission Resolution**
+	- Accept mission card submissions, enforce resistance success-only rule, and count fail cards against round-specific thresholds.
+	- Update mission history, scoreboard, and determine success/failure outcomes.
+- [x] **Round Advancement & Victory Detection**
+	- Manage round resets, attempt counters, and leader rotation after each mission or auto-fail.
+	- Detect win conditions (three successes or fails) and surface assassination pending state when applicable.
+- [x] **Unit Tests**
+	- Cover happy path approvals, rejections, auto-fail trigger, mission fail thresholds (including mission four), and victory transitions.
+	- Verify invalid actions (wrong phase, wrong leader, duplicate players) raise appropriate errors.
 ### Phase 4: Mission Execution
 - Implement mission success/fail card submissions with alignment-based rules (minions may fail, resistance must succeed).
 - Handle special cases: mission 4 requiring two fails in 7+ player games; Oberon knowledge handling.

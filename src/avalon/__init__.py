@@ -1,6 +1,14 @@
 """Avalon game engine package."""
 
 from .config import GameConfig, MissionConfig
+from .game_state import (
+    GamePhase,
+    GameState,
+    MissionDecision,
+    MissionRecord,
+    MissionResult,
+    VoteRecord,
+)
 from .knowledge import KnowledgePacket, compute_setup_knowledge
 from .players import AgentHook, Player, PlayerId
 from .roles import (
@@ -20,8 +28,13 @@ __all__ = [
     "AgentHook",
     "DEFAULT_ROLE_SET_BY_PLAYER_COUNT",
     "GameConfig",
+    "GamePhase",
+    "GameState",
     "KnowledgePacket",
     "MissionConfig",
+    "MissionDecision",
+    "MissionRecord",
+    "MissionResult",
     "Player",
     "PlayerId",
     "PlayerBriefing",
@@ -37,4 +50,5 @@ __all__ = [
     "perform_setup",
     "role_alignment",
     "validate_role_selection",
+    "VoteRecord",
 ]
