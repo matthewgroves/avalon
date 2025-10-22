@@ -11,7 +11,14 @@ from .game_state import (
     MissionSummary,
     VoteRecord,
 )
-from .interaction import CLIInteraction, InteractionIO, run_interactive_game
+from .interaction import (
+    CLIInteraction,
+    InteractionEventType,
+    InteractionIO,
+    InteractionLogEntry,
+    InteractionResult,
+    run_interactive_game,
+)
 from .knowledge import KnowledgePacket, compute_setup_knowledge
 from .players import AgentHook, Player, PlayerId
 from .roles import (
@@ -33,8 +40,11 @@ __all__ = [
     "GameConfig",
     "GamePhase",
     "GameState",
+    "InteractionEventType",
     "InteractionIO",
     "CLIInteraction",
+    "InteractionLogEntry",
+    "InteractionResult",
     "KnowledgePacket",
     "MissionConfig",
     "MissionAction",

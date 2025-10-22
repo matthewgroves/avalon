@@ -6,7 +6,11 @@ from typing import Iterable, List
 from avalon.config import GameConfig
 from avalon.enums import Alignment
 from avalon.game_state import GamePhase
-from avalon.interaction import InteractionIO, run_interactive_game
+from avalon.interaction import (
+    InteractionEventType,
+    InteractionIO,
+    run_interactive_game,
+)
 from avalon.roles import ROLE_DEFINITIONS, RoleTag
 from avalon.setup import PlayerRegistration, perform_setup
 
@@ -77,7 +81,8 @@ def test_scripted_session_runs_full_resistance_victory() -> None:
     ]
 
     scripted = ScriptedIO(responses)
-    final_state = run_interactive_game(config, io=scripted, seed=seed)
+    result = run_interactive_game(config, io=scripted, seed=seed)
+    final_state = result.state
 
     assert final_state.phase is GamePhase.GAME_OVER
     assert final_state.final_winner is Alignment.RESISTANCE
@@ -87,4 +92,15 @@ def test_scripted_session_runs_full_resistance_victory() -> None:
     assert final_state.assassination.target_id == wrong_target
     assert final_state.resistance_score == 3
     assert not scripted.responses
-    assert any("Game over" in message for message in scripted.writes)
+
+    hidden_prompts = [
+        entry for entry in result.transcript if entry.event is InteractionEventType.HIDDEN_PROMPT
+    ]
+    assert hidden_prompts
+    assert hidden_prompts[-1].message.startswith("Enter Merlin's player id")
+    assert hidden_prompts[-1].response == wrong_target
+
+    assert any(
+        entry.event is InteractionEventType.OUTPUT and "Game over" in entry.message
+        for entry in result.transcript
+    )

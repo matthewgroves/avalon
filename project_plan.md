@@ -144,8 +144,8 @@
 	- Drive `GameState` transitions via user prompts, covering team proposals, voting, missions, and assassination flow.
 - [x] **Scripted Test Harness**
 	- Add deterministic scripted backend to exercise the CLI loop under test and ensure successful resistance outcomes.
-- [ ] **Dialogue Logging Hooks**
-	- Capture emitted prompts and responses into structured records for future agent memory integration.
+- [x] **Dialogue Logging Hooks**
+	- Record every prompt, hidden prompt, and system output into a structured transcript returned with the game state for downstream agent memory work.
 
 ### Phase 7: Persistence & Memory Hooks
 - Design event schema and implement append-only logger.
@@ -168,6 +168,6 @@
 - Stretch goals: web/socket-based UI, pluggable LLM agent management service, analytics dashboard for mission history.
 
 ## 6. Next Steps
-1. Decide on dependency management tool (Poetry vs Hatch vs setuptools).
-2. Scaffold Python package structure and tooling configs (Phase 0 tasks).
-3. Begin implementing domain models (Phase 1) with comprehensive tests.
+1. Design structured persistence/event logging for Phase 7 (determine storage format, append-only semantics).
+2. Prototype save/load scaffolding around `GameState` snapshots.
+3. Document transcript schema expectations for prospective agent integrations.
