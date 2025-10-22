@@ -148,9 +148,9 @@
 	- Record every prompt, hidden prompt, and system output into a structured transcript returned with the game state for downstream agent memory work.
 
 ### Phase 7: Persistence & Memory Hooks
-- Design event schema and implement append-only logger.
-- Add save/load serialization for `game_state` and replay capability.
-- Expose APIs for agents to query past events, with filters for public vs private visibility.
+- [x] Design event schema and implement append-only logger.
+- [x] Add save/load serialization for `game_state` and replay capability.
+- [x] Expose APIs for agents to query past events, with filters for public vs private visibility.
 
 ### Phase 8: Testing & Validation
 - Write unit tests for role distribution, knowledge reveals, mission configuration per player count.

@@ -4,6 +4,7 @@ import pytest
 
 from avalon.config import GameConfig
 from avalon.enums import Alignment, RoleType
+from avalon.events import EventLog, GameEventType
 from avalon.exceptions import InvalidActionError
 from avalon.game_state import (
     GamePhase,
@@ -394,6 +395,21 @@ def test_actions_blocked_once_game_over() -> None:
     team = _team_members(state, team_size)
     with pytest.raises(InvalidActionError):
         state.propose_team(state.current_leader.player_id, team)
+
+
+def test_team_proposal_emits_events_when_log_attached() -> None:
+    state = _default_state(5)
+    log = EventLog()
+    state.event_log = log
+    team_size = state.config.mission_config.team_sizes[state.round_number - 1]
+    team = _team_members(state, team_size)
+
+    state.propose_team(state.current_leader.player_id, team)
+
+    event_types = [event.type for event in log.events]
+    assert len(event_types) == 2
+    assert event_types[0] is GameEventType.PHASE_CHANGED
+    assert event_types[1] is GameEventType.TEAM_PROPOSED
 
 
 def test_mission_four_requires_two_fail_cards() -> None:

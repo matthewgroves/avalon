@@ -1,6 +1,14 @@
 """Avalon game engine package."""
 
 from .config import GameConfig, MissionConfig
+from .events import (
+    EventLog,
+    EventVisibility,
+    GameEvent,
+    GameEventType,
+    alignment_audience_tag,
+    player_audience_tag,
+)
 from .game_state import (
     GamePhase,
     GameState,
@@ -20,6 +28,7 @@ from .interaction import (
     run_interactive_game,
 )
 from .knowledge import KnowledgePacket, compute_setup_knowledge
+from .persistence import GameStateSnapshot, restore_game_state, snapshot_game_state
 from .players import AgentHook, Player, PlayerId
 from .roles import (
     DEFAULT_ROLE_SET_BY_PLAYER_COUNT,
@@ -38,8 +47,13 @@ __all__ = [
     "AgentHook",
     "DEFAULT_ROLE_SET_BY_PLAYER_COUNT",
     "GameConfig",
+    "EventLog",
+    "GameEvent",
+    "GameEventType",
+    "EventVisibility",
     "GamePhase",
     "GameState",
+    "GameStateSnapshot",
     "InteractionEventType",
     "InteractionIO",
     "CLIInteraction",
@@ -65,8 +79,12 @@ __all__ = [
     "is_minion",
     "is_resistance",
     "perform_setup",
+    "alignment_audience_tag",
+    "player_audience_tag",
+    "restore_game_state",
     "role_alignment",
     "run_interactive_game",
+    "snapshot_game_state",
     "validate_role_selection",
     "VoteRecord",
 ]

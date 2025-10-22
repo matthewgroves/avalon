@@ -33,6 +33,8 @@ Avalon is a Python implementation of the Resistance: Avalon board game. The proj
 - Game state finite-state machine covering team proposals, voting, mission resolution, auto-fail handling, scoring, assassination workflow, and mission action/public summary logging (`avalon.game_state`).
 - Unit tests covering configuration, setup, and comprehensive game state scenarios.
 - Interaction utilities with a prompt-based CLI runner and scripted harness for automated validation (`avalon.interaction`).
+- Structured event logging primitives (`avalon.events`) captured during state transitions and major outcomes.
+- Persistence helpers for snapshotting and restoring game state, including event logs (`avalon.persistence`).
 
 ## Interactive CLI
 
@@ -43,6 +45,5 @@ Avalon is a Python implementation of the Resistance: Avalon board game. The proj
 
 ## Next Steps
 
-- Design the persistence/event logging substrate needed for Phase 7 (format, append semantics).
-- Implement save/load plumbing around `GameState` snapshots for resumable sessions.
-- Document transcript schemas and agent integration points for future scripted/LLM participants.
+- Document transcript schemas and agent integration points covering visibility-filtered event feeds.
+- Thread event visibility metadata through interaction outputs to surface personalised historical views.

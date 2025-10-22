@@ -5,10 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from getpass import getpass
-from typing import Protocol
+from typing import Protocol, Sequence, Tuple
 
 from .config import GameConfig
 from .enums import Alignment
+from .events import EventLog, EventVisibility, alignment_audience_tag, player_audience_tag
 from .exceptions import InvalidActionError
 from .game_state import GamePhase, GameState, MissionDecision
 from .players import Player
@@ -60,6 +61,8 @@ class InteractionLogEntry:
     event: InteractionEventType
     message: str
     response: str | None = None
+    visibility: EventVisibility = EventVisibility.PUBLIC
+    audience: Tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +71,41 @@ class InteractionResult:
 
     state: GameState
     transcript: tuple[InteractionLogEntry, ...]
+
+    def public_transcript(self) -> tuple[InteractionLogEntry, ...]:
+        """Return only publicly visible transcript entries."""
+
+        return tuple(
+            entry for entry in self.transcript if entry.visibility is EventVisibility.PUBLIC
+        )
+
+    def transcript_for_player(
+        self,
+        player_id: str,
+        *,
+        include_private: bool = False,
+        extra_tags: Sequence[str] | None = None,
+    ) -> tuple[InteractionLogEntry, ...]:
+        """Return transcript entries visible to the specified player."""
+
+        tags = [player_audience_tag(player_id)]
+        if extra_tags:
+            tags.extend(extra_tags)
+        return _filter_transcript(self.transcript, tags, include_private)
+
+    def transcript_for_alignment(
+        self,
+        alignment: Alignment | str,
+        *,
+        include_private: bool = False,
+        extra_tags: Sequence[str] | None = None,
+    ) -> tuple[InteractionLogEntry, ...]:
+        """Return transcript entries visible to the given alignment audience."""
+
+        tags = [alignment_audience_tag(alignment)]
+        if extra_tags:
+            tags.extend(extra_tags)
+        return _filter_transcript(self.transcript, tags, include_private)
 
 
 YES_VALUES = {"y", "yes", "approve", "a"}
@@ -81,6 +119,7 @@ def run_interactive_game(
     *,
     io: InteractionIO | None = None,
     seed: int | None = None,
+    event_log: EventLog | None = None,
 ) -> InteractionResult:
     """Run an Avalon game loop using the provided interaction backend."""
 
@@ -91,6 +130,7 @@ def run_interactive_game(
     registrations = _collect_registrations(config, backend, log)
     setup = perform_setup(config, registrations, seed=seed)
     state = GameState.from_setup(setup)
+    state.event_log = event_log or EventLog()
     _announce_roster(state.players, backend, log)
 
     while state.phase is not GamePhase.GAME_OVER:
@@ -112,16 +152,26 @@ def run_interactive_game(
     return InteractionResult(state=state, transcript=tuple(log))
 
 
-def _prompt_player_count(backend: InteractionIO, log: list[InteractionLogEntry]) -> int:
+def _prompt_player_count(
+    backend: InteractionIO,
+    log: list[InteractionLogEntry] | None = None,
+) -> int:
     while True:
-        response = _read(backend, log, "Enter player count (5-10) [5]: \n").strip()
+        prompt = "Enter player count (5-10) [5]: \n"
+        if log is None:
+            response = backend.read(prompt).strip()
+        else:
+            response = _read(backend, log, prompt).strip()
         if not response:
             return 5
         if response.isdigit():
             value = int(response)
             if 5 <= value <= 10:
                 return value
-        _write(backend, log, "Please enter a number between 5 and 10.")
+        if log is None:
+            backend.write("Please enter a number between 5 and 10.")
+        else:
+            _write(backend, log, "Please enter a number between 5 and 10.")
 
 
 def _collect_registrations(
@@ -191,7 +241,12 @@ def _handle_team_vote(
     for player in state.players:
         while True:
             response = (
-                _read_hidden(backend, log, f"{player.display_name} vote (approve? y/n): \n")
+                _read_hidden(
+                    backend,
+                    log,
+                    f"{player.display_name} vote (approve? y/n): \n",
+                    audience=[player_audience_tag(player.player_id)],
+                )
                 .strip()
                 .lower()
             )
@@ -201,7 +256,13 @@ def _handle_team_vote(
             if response in NO_VALUES:
                 votes[player.player_id] = False
                 break
-            _write(backend, log, "Please respond with y/n.")
+            _write(
+                backend,
+                log,
+                "Please respond with y/n.",
+                visibility=EventVisibility.PRIVATE,
+                audience=[player_audience_tag(player.player_id)],
+            )
 
     record = state.vote_on_team(votes)
     outcome = "approved" if record.approved else "rejected"
@@ -224,7 +285,10 @@ def _handle_mission(
         while True:
             response = (
                 _read_hidden(
-                    backend, log, f"{player.display_name} mission decision (success/fail): \n"
+                    backend,
+                    log,
+                    f"{player.display_name} mission decision (success/fail): \n",
+                    audience=[player_audience_tag(player_id)],
                 )
                 .strip()
                 .lower()
@@ -235,7 +299,13 @@ def _handle_mission(
             if response in FAIL_VALUES:
                 decisions[player_id] = MissionDecision.FAIL
                 break
-            _write(backend, log, "Please enter 'success' or 'fail'.")
+            _write(
+                backend,
+                log,
+                "Please enter 'success' or 'fail'.",
+                visibility=EventVisibility.PRIVATE,
+                audience=[player_audience_tag(player_id)],
+            )
 
     record = state.submit_mission(decisions)
     _write(
@@ -264,9 +334,20 @@ def _handle_assassination(
         f"Assassination phase: {assassin.display_name} must identify Merlin by player id.",
     )
     while True:
-        target_id = _read_hidden(backend, log, "Enter Merlin's player id: \n").strip()
+        target_id = _read_hidden(
+            backend,
+            log,
+            "Enter Merlin's player id: \n",
+            audience=[player_audience_tag(assassin_id)],
+        ).strip()
         if not target_id:
-            _write(backend, log, "Target id is required.")
+            _write(
+                backend,
+                log,
+                "Target id is required.",
+                visibility=EventVisibility.PRIVATE,
+                audience=[player_audience_tag(assassin_id)],
+            )
             continue
         try:
             record = state.perform_assassination(assassin_id, target_id)
@@ -274,7 +355,13 @@ def _handle_assassination(
             _write(backend, log, f"Assassination {result}!")
             break
         except InvalidActionError as exc:
-            _write(backend, log, f"Invalid target: {exc}")
+            _write(
+                backend,
+                log,
+                f"Invalid target: {exc}",
+                visibility=EventVisibility.PRIVATE,
+                audience=[player_audience_tag(assassin_id)],
+            )
 
 
 def _parse_team(entry: str) -> tuple[str, ...] | None:
@@ -282,43 +369,69 @@ def _parse_team(entry: str) -> tuple[str, ...] | None:
     return tuple(tokens) if tokens else None
 
 
-def _read(backend: InteractionIO, log: list[InteractionLogEntry], prompt: str) -> str:
+def _read(
+    backend: InteractionIO,
+    log: list[InteractionLogEntry],
+    prompt: str,
+    *,
+    visibility: EventVisibility = EventVisibility.PUBLIC,
+    audience: Sequence[str] | None = None,
+) -> str:
     response = backend.read(prompt)
     log.append(
         InteractionLogEntry(
             event=InteractionEventType.PROMPT,
             message=prompt,
             response=response,
+            visibility=visibility,
+            audience=_audience_tuple(audience),
         )
     )
     return response
 
 
-def _read_hidden(backend: InteractionIO, log: list[InteractionLogEntry], prompt: str) -> str:
+def _read_hidden(
+    backend: InteractionIO,
+    log: list[InteractionLogEntry],
+    prompt: str,
+    *,
+    audience: Sequence[str] | None = None,
+) -> str:
     response = backend.read_hidden(prompt)
     log.append(
         InteractionLogEntry(
             event=InteractionEventType.HIDDEN_PROMPT,
             message=prompt,
             response=response,
+            visibility=EventVisibility.PRIVATE,
+            audience=_audience_tuple(audience),
         )
     )
     return response
 
 
-def _write(backend: InteractionIO, log: list[InteractionLogEntry], message: str) -> None:
+def _write(
+    backend: InteractionIO,
+    log: list[InteractionLogEntry],
+    message: str,
+    *,
+    visibility: EventVisibility = EventVisibility.PUBLIC,
+    audience: Sequence[str] | None = None,
+) -> None:
     backend.write(message)
     log.append(
         InteractionLogEntry(
             event=InteractionEventType.OUTPUT,
             message=message,
+            visibility=visibility,
+            audience=_audience_tuple(audience),
         )
     )
 
 
 def main() -> None:  # pragma: no cover - CLI entry point
     backend = CLIInteraction()
-    player_count = _prompt_player_count(backend, [])
+    player_count = _prompt_player_count(backend)
     config = GameConfig.default(player_count)
     run_interactive_game(config, io=backend)
 
@@ -336,3 +449,26 @@ __all__ = [
     "main",
     "run_interactive_game",
 ]
+
+
+def _filter_transcript(
+    entries: Sequence[InteractionLogEntry],
+    audience_tags: Sequence[str],
+    include_private: bool,
+) -> tuple[InteractionLogEntry, ...]:
+    allowed = set(audience_tags)
+    matched: list[InteractionLogEntry] = []
+    for entry in entries:
+        if entry.visibility is EventVisibility.PUBLIC:
+            matched.append(entry)
+            continue
+        if include_private:
+            matched.append(entry)
+            continue
+        if any(tag in allowed for tag in entry.audience):
+            matched.append(entry)
+    return tuple(matched)
+
+
+def _audience_tuple(audience: Sequence[str] | None) -> Tuple[str, ...]:
+    return tuple(audience or ())

@@ -5,10 +5,11 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 from .config import GameConfig
 from .enums import Alignment
+from .events import EventLog, GameEventType
 from .exceptions import ConfigurationError, InvalidActionError
 from .players import Player, PlayerId
 from .roles import ROLE_DEFINITIONS, RoleTag
@@ -128,6 +129,7 @@ class GameState:
     vote_history: list[VoteRecord] = field(default_factory=list, repr=False)
     mission_history: list[MissionRecord] = field(default_factory=list, repr=False)
     seed: Optional[int] = None
+    event_log: Optional[EventLog] = field(default=None, repr=False)
     _players_by_id: Dict[PlayerId, Player] = field(init=False, repr=False, default_factory=dict)
     _assassin_present: bool = field(init=False, repr=False, default=False)
     _assassin_ids: Tuple[PlayerId, ...] = field(init=False, repr=False, default=())
@@ -197,6 +199,19 @@ class GameState:
 
         return self.assassination_record
 
+    def _record_event(
+        self,
+        event_type: GameEventType,
+        payload: Mapping[str, Any] | None = None,
+    ) -> None:
+        if self.event_log is None:
+            return
+        self.event_log.record(event_type, payload or {})
+
+    def _set_phase(self, phase: GamePhase) -> None:
+        self.phase = phase
+        self._record_event(GameEventType.PHASE_CHANGED, {"phase": phase.value})
+
     def propose_team(self, leader_id: PlayerId, team: Sequence[PlayerId]) -> Tuple[PlayerId, ...]:
         """Propose a mission team for the current round."""
 
@@ -217,7 +232,16 @@ class GameState:
                 raise InvalidActionError(f"Unknown player id in team proposal: {player_id}")
 
         self.current_team = team_tuple
-        self.phase = GamePhase.TEAM_VOTE
+        self._set_phase(GamePhase.TEAM_VOTE)
+        self._record_event(
+            GameEventType.TEAM_PROPOSED,
+            {
+                "round": self.round_number,
+                "attempt": self.attempt_number,
+                "leader_id": leader_id,
+                "team": list(team_tuple),
+            },
+        )
         return team_tuple
 
     def vote_on_team(self, votes: Mapping[PlayerId, bool]) -> VoteRecord:
@@ -251,9 +275,20 @@ class GameState:
             approved=approved,
         )
         self.vote_history.append(record)
+        self._record_event(
+            GameEventType.TEAM_VOTE_RECORDED,
+            {
+                "round": record.round_number,
+                "attempt": record.attempt_number,
+                "team": list(record.team),
+                "approvals": list(record.approvals),
+                "rejections": list(record.rejections),
+                "approved": record.approved,
+            },
+        )
 
         if approved:
-            self.phase = GamePhase.MISSION
+            self._set_phase(GamePhase.MISSION)
             self.consecutive_rejections = 0
         else:
             self.consecutive_rejections += 1
@@ -263,7 +298,7 @@ class GameState:
             else:
                 self.attempt_number += 1
                 self.current_team = None
-                self.phase = GamePhase.TEAM_PROPOSAL
+                self._set_phase(GamePhase.TEAM_PROPOSAL)
 
         return record
 
@@ -308,6 +343,18 @@ class GameState:
         )
         self.mission_history.append(record)
         self.current_team = None
+        self._record_event(
+            GameEventType.MISSION_RESOLVED,
+            {
+                "round": record.round_number,
+                "attempt": record.attempt_number,
+                "team": list(record.team),
+                "fail_count": record.fail_count,
+                "required_fail_count": record.required_fail_count,
+                "result": record.result.value,
+                "auto_fail": record.auto_fail,
+            },
+        )
 
         if mission_success:
             self._handle_resistance_success()
@@ -334,11 +381,26 @@ class GameState:
 
         target = self._players_by_id[target_id]
         success = RoleTag.MERLIN in ROLE_DEFINITIONS[target.role].tags
-        self.phase = GamePhase.GAME_OVER
         self.final_winner = Alignment.MINION if success else Alignment.RESISTANCE
         self.provisional_winner = self.final_winner
+        self._set_phase(GamePhase.GAME_OVER)
         record = AssassinationRecord(assassin_id=assassin_id, target_id=target_id, success=success)
         self.assassination_record = record
+        self._record_event(
+            GameEventType.ASSASSINATION_RESOLVED,
+            {
+                "assassin_id": assassin_id,
+                "target_id": target_id,
+                "success": success,
+            },
+        )
+        self._record_event(
+            GameEventType.GAME_COMPLETED,
+            {
+                "winner": self.final_winner.value,
+                "reason": "assassination_success" if success else "assassination_failure",
+            },
+        )
         return record
 
     def _handle_resistance_success(self) -> None:
@@ -346,10 +408,14 @@ class GameState:
         if self.resistance_score >= 3:
             self.provisional_winner = Alignment.RESISTANCE
             if self._assassin_present:
-                self.phase = GamePhase.ASSASSINATION_PENDING
+                self._set_phase(GamePhase.ASSASSINATION_PENDING)
             else:
-                self.phase = GamePhase.GAME_OVER
                 self.final_winner = Alignment.RESISTANCE
+                self._set_phase(GamePhase.GAME_OVER)
+                self._record_event(
+                    GameEventType.GAME_COMPLETED,
+                    {"winner": Alignment.RESISTANCE.value, "reason": "three_successful_missions"},
+                )
             return
 
         self._advance_leader()
@@ -358,8 +424,12 @@ class GameState:
     def _handle_minion_success(self) -> None:
         self.minion_score += 1
         if self.minion_score >= 3:
-            self.phase = GamePhase.GAME_OVER
             self.final_winner = Alignment.MINION
+            self._set_phase(GamePhase.GAME_OVER)
+            self._record_event(
+                GameEventType.GAME_COMPLETED,
+                {"winner": Alignment.MINION.value, "reason": "three_failed_missions"},
+            )
             return
 
         self._advance_leader()
@@ -380,10 +450,22 @@ class GameState:
         self.mission_history.append(record)
         self.current_team = None
         self.minion_score += 1
+        self._record_event(
+            GameEventType.MISSION_AUTO_FAILED,
+            {
+                "round": record.round_number,
+                "attempt": record.attempt_number,
+                "required_fail_count": record.required_fail_count,
+            },
+        )
 
         if self.minion_score >= 3:
-            self.phase = GamePhase.GAME_OVER
             self.final_winner = Alignment.MINION
+            self._set_phase(GamePhase.GAME_OVER)
+            self._record_event(
+                GameEventType.GAME_COMPLETED,
+                {"winner": Alignment.MINION.value, "reason": "three_failed_missions"},
+            )
             return
 
         self.consecutive_rejections = 0
@@ -392,12 +474,12 @@ class GameState:
 
     def _prepare_next_round(self) -> None:
         if self.round_number >= len(self.config.mission_config.team_sizes):
-            self.phase = GamePhase.GAME_OVER
+            self._set_phase(GamePhase.GAME_OVER)
             return
 
         self.round_number += 1
         self.attempt_number = 1
-        self.phase = GamePhase.TEAM_PROPOSAL
+        self._set_phase(GamePhase.TEAM_PROPOSAL)
         self.consecutive_rejections = 0
 
     def _advance_leader(self) -> None:
