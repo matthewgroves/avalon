@@ -11,6 +11,7 @@ from .game_state import (
     MissionSummary,
     VoteRecord,
 )
+from .interaction import CLIInteraction, InteractionIO, run_interactive_game
 from .knowledge import KnowledgePacket, compute_setup_knowledge
 from .players import AgentHook, Player, PlayerId
 from .roles import (
@@ -32,6 +33,8 @@ __all__ = [
     "GameConfig",
     "GamePhase",
     "GameState",
+    "InteractionIO",
+    "CLIInteraction",
     "KnowledgePacket",
     "MissionConfig",
     "MissionAction",
@@ -53,6 +56,7 @@ __all__ = [
     "is_resistance",
     "perform_setup",
     "role_alignment",
+    "run_interactive_game",
     "validate_role_selection",
     "VoteRecord",
 ]

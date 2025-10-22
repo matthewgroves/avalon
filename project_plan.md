@@ -138,9 +138,14 @@
 	- Added scenarios for correct/incorrect guesses, invalid targets, single-resolution enforcement, and bypass cases for auto-fail or minion victories.
 
 ### Phase 6: Interaction Layer MVP
-- Create CLI interface supporting human input with privacy management (e.g., hidden prompts for votes, mission choices).
-- Implement mock agent stubs that follow simple scripted logic for automated tests.
-- Provide logging of public dialogue placeholders and private notes for future LLM integration.
+- [x] **Interaction IO Abstractions**
+	- Define a shared prompt surface (`InteractionIO`) and console-backed implementation using hidden prompts for private decisions.
+- [x] **CLI Game Runner**
+	- Drive `GameState` transitions via user prompts, covering team proposals, voting, missions, and assassination flow.
+- [x] **Scripted Test Harness**
+	- Add deterministic scripted backend to exercise the CLI loop under test and ensure successful resistance outcomes.
+- [ ] **Dialogue Logging Hooks**
+	- Capture emitted prompts and responses into structured records for future agent memory integration.
 
 ### Phase 7: Persistence & Memory Hooks
 - Design event schema and implement append-only logger.
