@@ -14,6 +14,7 @@ from .roles import (
     role_alignment,
     validate_role_selection,
 )
+from .setup import PlayerBriefing, PlayerRegistration, SetupResult, perform_setup
 
 __all__ = [
     "AgentHook",
@@ -23,13 +24,17 @@ __all__ = [
     "MissionConfig",
     "Player",
     "PlayerId",
+    "PlayerBriefing",
+    "PlayerRegistration",
     "ROLE_DEFINITIONS",
     "RoleDefinition",
     "RoleTag",
+    "SetupResult",
     "compute_setup_knowledge",
     "default_roles_for_player_count",
     "is_minion",
     "is_resistance",
+    "perform_setup",
     "role_alignment",
     "validate_role_selection",
 ]

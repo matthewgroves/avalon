@@ -66,9 +66,25 @@
 	- Test mission configuration tables against official rulebook.
 
 ### Phase 2: Game Setup Logic
-- Implement role selection based on player count and configuration.
-- Randomly assign roles to players; generate knowledge disclosures per role (Merlin sees evil except Mordred, etc.).
-- Provide setup outputs: private briefings for each player/agent and initial public state broadcast.
+- [x] **Input Validation & Seeding**
+	- Accept ordered player registrations (names and optional ids) matching `GameConfig.player_count`.
+	- Validate uniqueness of player identifiers and non-empty names.
+	- Initialize deterministic RNG using explicit seed parameter or `GameConfig.random_seed` fallback.
+- [x] **Role Assignment**
+	- Shuffle configured roles with RNG and bind each to a player seat.
+	- Expose assignment data via immutable structures for downstream phases.
+- [x] **Player Construction**
+	- Instantiate `Player` objects with generated ids, display names, assigned roles, and default history placeholders.
+- [x] **Knowledge Distribution**
+	- Reuse `compute_setup_knowledge` to build per-player `KnowledgePacket`s.
+	- Package results into structured briefings intended for private delivery.
+- [x] **Setup Summary Artifact**
+	- Create dataclasses capturing the finalized lobby (public player list), role assignments, and knowledge map.
+	- Provide helper to produce public lobby snapshot (names only) for display/UI consumption.
+- [x] **Unit Tests**
+	- Validate deterministic role assignment with fixed seed.
+	- Ensure knowledge packets align with assigned roles in canonical scenarios.
+	- Confirm validation errors trigger on incorrect player counts or duplicate registrations.
 
 ### Phase 3: Turn & Phase Management
 - Build finite state machine to manage phases with explicit transition methods.
