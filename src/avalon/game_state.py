@@ -8,9 +8,10 @@ from enum import Enum
 from typing import Dict, Mapping, Optional, Sequence, Tuple
 
 from .config import GameConfig
-from .enums import Alignment, RoleType
+from .enums import Alignment
 from .exceptions import ConfigurationError, InvalidActionError
 from .players import Player, PlayerId
+from .roles import ROLE_DEFINITIONS, RoleTag
 from .setup import SetupResult
 
 
@@ -99,6 +100,15 @@ class MissionRecord:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class AssassinationRecord:
+    """Record capturing the outcome of the assassin's guess."""
+
+    assassin_id: PlayerId
+    target_id: PlayerId
+    success: bool
+
+
 @dataclass(slots=True)
 class GameState:
     """Mutable representation of an in-progress Avalon game."""
@@ -120,6 +130,8 @@ class GameState:
     seed: Optional[int] = None
     _players_by_id: Dict[PlayerId, Player] = field(init=False, repr=False, default_factory=dict)
     _assassin_present: bool = field(init=False, repr=False, default=False)
+    _assassin_ids: Tuple[PlayerId, ...] = field(init=False, repr=False, default=())
+    assassination_record: Optional[AssassinationRecord] = None
 
     def __post_init__(self) -> None:
         player_map = {player.player_id: player for player in self.players}
@@ -128,11 +140,14 @@ class GameState:
         if self.config.player_count != len(self.players):
             raise ConfigurationError("Player roster does not match configuration count")
         object.__setattr__(self, "_players_by_id", player_map)
-        object.__setattr__(
-            self,
-            "_assassin_present",
-            any(player.role is RoleType.ASSASSIN for player in self.players),
+        assassin_ids = tuple(
+            player.player_id
+            for player in self.players
+            if RoleTag.ASSASSIN in ROLE_DEFINITIONS[player.role].tags
         )
+        has_assassin = bool(assassin_ids)
+        object.__setattr__(self, "_assassin_present", has_assassin)
+        object.__setattr__(self, "_assassin_ids", assassin_ids)
 
     @classmethod
     def from_setup(cls, setup: SetupResult) -> "GameState":
@@ -169,6 +184,18 @@ class GameState:
         """Return sanitized mission summaries for public consumption."""
 
         return tuple(record.to_public_summary() for record in self.mission_history)
+
+    @property
+    def assassin_ids(self) -> Tuple[PlayerId, ...]:
+        """Return the identifiers of assassin-aligned players."""
+
+        return self._assassin_ids
+
+    @property
+    def assassination(self) -> Optional[AssassinationRecord]:
+        """Return the resolved assassination record, if any."""
+
+        return self.assassination_record
 
     def propose_team(self, leader_id: PlayerId, team: Sequence[PlayerId]) -> Tuple[PlayerId, ...]:
         """Propose a mission team for the current round."""
@@ -289,6 +316,31 @@ class GameState:
 
         return record
 
+    def perform_assassination(
+        self,
+        assassin_id: PlayerId,
+        target_id: PlayerId,
+    ) -> AssassinationRecord:
+        """Resolve the Merlin assassination attempt."""
+
+        if self.phase is not GamePhase.ASSASSINATION_PENDING:
+            raise InvalidActionError("Assassination is not currently available")
+        if self.assassination_record is not None or self.final_winner is not None:
+            raise InvalidActionError("Assassination has already been resolved")
+        if assassin_id not in self._assassin_ids:
+            raise InvalidActionError("Only the assassin may perform the assassination")
+        if target_id not in self._players_by_id:
+            raise InvalidActionError("Unknown assassination target")
+
+        target = self._players_by_id[target_id]
+        success = RoleTag.MERLIN in ROLE_DEFINITIONS[target.role].tags
+        self.phase = GamePhase.GAME_OVER
+        self.final_winner = Alignment.MINION if success else Alignment.RESISTANCE
+        self.provisional_winner = self.final_winner
+        record = AssassinationRecord(assassin_id=assassin_id, target_id=target_id, success=success)
+        self.assassination_record = record
+        return record
+
     def _handle_resistance_success(self) -> None:
         self.resistance_score += 1
         if self.resistance_score >= 3:
@@ -358,6 +410,8 @@ class GameState:
         return self.config.mission_config.required_fail_counts[self.round_number - 1]
 
     def _ensure_phase(self, expected: GamePhase) -> None:
+        if self.phase is GamePhase.GAME_OVER:
+            raise InvalidActionError("Game is already over")
         if self.phase is not expected:
             raise InvalidActionError(
                 f"Action requires phase {expected.value}, current phase is {self.phase.value}"

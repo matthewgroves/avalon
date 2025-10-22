@@ -126,9 +126,21 @@
 	- Verify that sanitized summaries exclude identifying data while preserving statistical accuracy.
 
 ### Phase 5: Assassination & Endgame
-- Trigger assassination phase when resistance reaches three successes and assassin role exists.
-- Implement assassin selection logic, reveal outcome, determine final winner, and record event.
-- Handle immediate evil victory when three missions fail or fifth team rejection occurs.
+- [ ] **Assassination Trigger Conditions**
+	- Detect resistance reaching three successes when an assassin-aligned role is present.
+	- Surface a public state flag and record provisional victory for the resistance pending the assassination outcome.
+- [ ] **Assassin Action Interface**
+	- Add APIs on `GameState` to initiate assassination, validate assassin identity, and accept a Merlin target selection.
+	- Prevent repeated assassination attempts and guard against invalid targets (non-merlin, unknown ids).
+- [ ] **Outcome Resolution**
+	- Resolve assassin guesses by revealing Merlin status and updating the final winner accordingly.
+	- Record assassination results in mission history or a dedicated log for replay fidelity.
+- [ ] **Final State Guardrails**
+	- Ensure no further game actions are allowed once the final winner is set.
+	- Extend error handling for attempts to assassinate without pending conditions.
+- [ ] **Unit Tests**
+	- Cover assassin success and failure paths, including invalid target scenarios.
+	- Verify that auto-fail victories and three-mission failures still bypass the assassination phase.
 
 ### Phase 6: Interaction Layer MVP
 - Create CLI interface supporting human input with privacy management (e.g., hidden prompts for votes, mission choices).

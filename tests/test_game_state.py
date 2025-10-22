@@ -86,6 +86,13 @@ def _team_of_resistance(state: GameState, size: int) -> tuple[str, ...]:
     return tuple(team)
 
 
+def _player_id_for_role(state: GameState, role: RoleType) -> str:
+    try:
+        return next(player.player_id for player in state.players if player.role is role)
+    except StopIteration as exc:  # pragma: no cover - defensive guard
+        raise AssertionError(f"role {role} not present in state") from exc
+
+
 def _approve_team(
     state: GameState,
     team: tuple[str, ...],
@@ -129,7 +136,7 @@ def _reach_round_four_state(seed: int = 37) -> GameState:
     _run_mission(state, team_three, decisions)
 
     assert state.round_number == 4
-    assert state.phase is GamePhase.TEAM_PROPOSAL
+    assert state.phase is GamePhase.ASSASSINATION_PENDING
     assert state.resistance_score == 2
     assert state.minion_score == 1
     return state
@@ -270,8 +277,9 @@ def test_resistance_reaches_three_successes_moves_to_assassination_when_assassin
         _run_mission(state, team, {pid: MissionDecision.SUCCESS for pid in team})
     assert state.resistance_score == 3
     assert state.provisional_winner is Alignment.RESISTANCE
-    assert state.phase is GamePhase.ASSASSINATION_PENDING
+    assert state.phase is GamePhase.TEAM_PROPOSAL
     assert state.final_winner is None
+    assert state.assassin_ids
 
 
 def test_resistance_victory_without_assassin_ends_game() -> None:
@@ -295,6 +303,71 @@ def test_resistance_victory_without_assassin_ends_game() -> None:
     assert state.resistance_score == 3
     assert state.final_winner is Alignment.RESISTANCE
     assert state.phase is GamePhase.GAME_OVER
+    assert not state.assassin_ids
+
+
+def test_assassin_successful_guess_awards_minion_victory() -> None:
+    state = _default_state(5)
+    assassin_id = _player_id_for_role(state, RoleType.ASSASSIN)
+    merlin_id = _player_id_for_role(state, RoleType.MERLIN)
+    for _ in range(3):
+        team_size = state.config.mission_config.team_sizes[state.round_number - 1]
+        team = _team_members(state, team_size)
+        _run_mission(state, team, {pid: MissionDecision.SUCCESS for pid in team})
+    record = state.perform_assassination(assassin_id, merlin_id)
+    assert record.success
+    assert state.assassination == record
+    assert state.final_winner is Alignment.MINION
+    assert state.phase is GamePhase.GAME_OVER
+
+
+def test_assassin_incorrect_guess_preserves_resistance_victory() -> None:
+    state = _default_state(5)
+    assassin_id = _player_id_for_role(state, RoleType.ASSASSIN)
+    non_merlin_target = _player_id_for_role(state, RoleType.PERCIVAL)
+    for _ in range(3):
+        team_size = state.config.mission_config.team_sizes[state.round_number - 1]
+        team = _team_members(state, team_size)
+        _run_mission(state, team, {pid: MissionDecision.SUCCESS for pid in team})
+    record = state.perform_assassination(assassin_id, non_merlin_target)
+    assert not record.success
+    assert state.final_winner is Alignment.RESISTANCE
+    assert state.phase is GamePhase.GAME_OVER
+
+
+def test_assassination_not_available_before_pending_phase() -> None:
+    state = _default_state(5)
+    assassin_id = _player_id_for_role(state, RoleType.ASSASSIN)
+    merlin_id = _player_id_for_role(state, RoleType.MERLIN)
+    with pytest.raises(InvalidActionError):
+        state.perform_assassination(assassin_id, merlin_id)
+
+
+def test_only_assassin_may_perform_assassination() -> None:
+    state = _default_state(5)
+    assassin_id = _player_id_for_role(state, RoleType.ASSASSIN)
+    merlin_id = _player_id_for_role(state, RoleType.MERLIN)
+    for _ in range(3):
+        team_size = state.config.mission_config.team_sizes[state.round_number - 1]
+        team = _team_members(state, team_size)
+        _run_mission(state, team, {pid: MissionDecision.SUCCESS for pid in team})
+    with pytest.raises(InvalidActionError):
+        state.perform_assassination(merlin_id, merlin_id)
+    record = state.perform_assassination(assassin_id, merlin_id)
+    assert record.success
+
+
+def test_assassination_only_resolves_once() -> None:
+    state = _default_state(5)
+    assassin_id = _player_id_for_role(state, RoleType.ASSASSIN)
+    merlin_id = _player_id_for_role(state, RoleType.MERLIN)
+    for _ in range(3):
+        team_size = state.config.mission_config.team_sizes[state.round_number - 1]
+        team = _team_members(state, team_size)
+        _run_mission(state, team, {pid: MissionDecision.SUCCESS for pid in team})
+    state.perform_assassination(assassin_id, merlin_id)
+    with pytest.raises(InvalidActionError):
+        state.perform_assassination(assassin_id, merlin_id)
 
 
 def test_mission_four_requires_two_fail_cards() -> None:
@@ -343,6 +416,7 @@ def test_minions_win_after_three_failed_missions() -> None:
     assert state.minion_score == 3
     assert state.final_winner is Alignment.MINION
     assert state.phase is GamePhase.GAME_OVER
+    assert state.assassination is None
 
 
 def test_resistance_player_cannot_submit_fail_decision() -> None:
