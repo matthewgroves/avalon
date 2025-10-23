@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Optional, Sequence, Tuple
 
 from .config import GameConfig
+from .enums import PlayerType
 from .exceptions import ConfigurationError
 from .knowledge import KnowledgePacket, compute_setup_knowledge
 from .players import Player, PlayerId
@@ -18,6 +19,7 @@ class PlayerRegistration:
 
     display_name: str
     player_id: Optional[str] = None
+    player_type: PlayerType = PlayerType.HUMAN
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +89,7 @@ def perform_setup(
                 player_id=player_id,
                 display_name=registration.display_name,
                 role=roles[index],
+                player_type=registration.player_type,
             )
         )
 
@@ -141,9 +144,20 @@ def _normalize_registrations(
             if cleaned_id in seen_ids:
                 raise ConfigurationError("Duplicate player identifier detected: " f"{cleaned_id}")
             seen_ids.add(cleaned_id)
-            normalized.append(PlayerRegistration(display_name=display_name, player_id=cleaned_id))
+            normalized.append(
+                PlayerRegistration(
+                    display_name=display_name,
+                    player_id=cleaned_id,
+                    player_type=registration.player_type,
+                )
+            )
         else:
-            normalized.append(PlayerRegistration(display_name=display_name))
+            normalized.append(
+                PlayerRegistration(
+                    display_name=display_name,
+                    player_type=registration.player_type,
+                )
+            )
 
     return tuple(normalized)
 

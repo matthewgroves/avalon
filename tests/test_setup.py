@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from avalon.config import GameConfig
-from avalon.enums import RoleType
+from avalon.enums import PlayerType, RoleType
 from avalon.exceptions import ConfigurationError
 from avalon.setup import PlayerRegistration, perform_setup
 
@@ -54,3 +54,31 @@ def test_duplicate_names_rejected() -> None:
 
     with pytest.raises(ConfigurationError):
         perform_setup(config, registrations)
+
+
+def test_player_type_flows_through_setup() -> None:
+    """Verify player_type from registration is preserved in Player objects."""
+    config = GameConfig.default(5)
+    registrations = [
+        PlayerRegistration("Alice", player_type=PlayerType.HUMAN),
+        PlayerRegistration("AgentBob", player_type=PlayerType.AGENT),
+        PlayerRegistration("Carol", player_type=PlayerType.HUMAN),
+        PlayerRegistration("AgentDave", player_type=PlayerType.AGENT),
+        PlayerRegistration("AgentEve", player_type=PlayerType.AGENT),
+    ]
+
+    result = perform_setup(config, registrations, seed=10)
+
+    assert result.players[0].display_name == "Alice"
+    assert result.players[0].player_type is PlayerType.HUMAN
+    assert result.players[0].is_human
+    assert not result.players[0].is_agent
+
+    assert result.players[1].display_name == "AgentBob"
+    assert result.players[1].player_type is PlayerType.AGENT
+    assert result.players[1].is_agent
+    assert not result.players[1].is_human
+
+    assert result.players[2].player_type is PlayerType.HUMAN
+    assert result.players[3].player_type is PlayerType.AGENT
+    assert result.players[4].player_type is PlayerType.AGENT

@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from avalon.config_loader import load_config_file
-from avalon.enums import RoleType
+from avalon.enums import PlayerType, RoleType
 from avalon.exceptions import ConfigurationError
 from avalon.interaction import BriefingDeliveryMode
 
@@ -149,3 +149,87 @@ def test_load_config_file_not_found() -> None:
     """Raise FileNotFoundError for missing config file."""
     with pytest.raises(FileNotFoundError):
         load_config_file("/nonexistent/config.yaml")
+
+
+def test_load_config_with_agent_players() -> None:
+    """Load config with mix of human and agent players."""
+    yaml_content = """
+players:
+  - Alice
+  - name: AgentBob
+    type: agent
+  - name: AgentCarol
+    type: agent
+  - Dave
+  - name: AgentEve
+    type: agent
+
+optional_roles:
+  - mordred
+"""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write(yaml_content)
+        config_path = f.name
+
+    try:
+        setup = load_config_file(config_path)
+
+        assert setup.game_config.player_count == 5
+        assert len(setup.registrations) == 5
+
+        # Check player types
+        assert setup.registrations[0].display_name == "Alice"
+        assert setup.registrations[0].player_type is PlayerType.HUMAN
+
+        assert setup.registrations[1].display_name == "AgentBob"
+        assert setup.registrations[1].player_type is PlayerType.AGENT
+
+        assert setup.registrations[2].display_name == "AgentCarol"
+        assert setup.registrations[2].player_type is PlayerType.AGENT
+
+        assert setup.registrations[3].display_name == "Dave"
+        assert setup.registrations[3].player_type is PlayerType.HUMAN
+
+        assert setup.registrations[4].display_name == "AgentEve"
+        assert setup.registrations[4].player_type is PlayerType.AGENT
+    finally:
+        Path(config_path).unlink()
+
+
+def test_load_config_invalid_player_type() -> None:
+    """Reject config with invalid player type."""
+    yaml_content = """
+players:
+  - name: Alice
+    type: robot
+
+optional_roles: []
+"""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write(yaml_content)
+        config_path = f.name
+
+    try:
+        with pytest.raises(ConfigurationError, match="invalid type"):
+            load_config_file(config_path)
+    finally:
+        Path(config_path).unlink()
+
+
+def test_load_config_player_missing_name() -> None:
+    """Reject config with player entry missing name field."""
+    yaml_content = """
+players:
+  - type: agent
+
+optional_roles: []
+"""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write(yaml_content)
+        config_path = f.name
+
+    try:
+        with pytest.raises(ConfigurationError, match="missing 'name'"):
+            load_config_file(config_path)
+    finally:
+        Path(config_path).unlink()

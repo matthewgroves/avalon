@@ -9,7 +9,7 @@ from typing import Any
 import yaml  # type: ignore[import-untyped]
 
 from .config import GameConfig
-from .enums import RoleType
+from .enums import PlayerType, RoleType
 from .exceptions import ConfigurationError
 from .interaction import BriefingDeliveryMode, BriefingOptions
 from .roles import build_role_list
@@ -52,14 +52,50 @@ def load_config_file(config_path: str | Path) -> GameSetupConfig:
         raise ConfigurationError("Config file must contain a YAML mapping")
 
     # Parse player setup
-    player_names = data.get("players")
-    if not player_names:
+    player_data = data.get("players")
+    if not player_data:
         raise ConfigurationError("Config file must specify 'players' list")
-    if not isinstance(player_names, list):
-        raise ConfigurationError("'players' must be a list of names")
+    if not isinstance(player_data, list):
+        raise ConfigurationError("'players' must be a list")
 
-    player_count = len(player_names)
-    registrations = tuple(PlayerRegistration(display_name=str(name)) for name in player_names)
+    # Parse player registrations - support both string format and dict format
+    registrations: list[PlayerRegistration] = []
+    for idx, player_entry in enumerate(player_data):
+        if isinstance(player_entry, str):
+            # Simple format: just player name (defaults to human)
+            registrations.append(
+                PlayerRegistration(display_name=player_entry, player_type=PlayerType.HUMAN)
+            )
+        elif isinstance(player_entry, dict):
+            # Structured format: {name: "Alice", type: "agent"}
+            name = player_entry.get("name")
+            if not name:
+                raise ConfigurationError(f"Player entry {idx + 1} missing 'name' field")
+
+            type_str = player_entry.get("type", "human")
+            if not isinstance(type_str, str):
+                raise ConfigurationError(f"Player {name}: 'type' must be a string")
+
+            type_lower = type_str.lower().strip()
+            if type_lower == "human":
+                player_type = PlayerType.HUMAN
+            elif type_lower == "agent":
+                player_type = PlayerType.AGENT
+            else:
+                raise ConfigurationError(
+                    f"Player {name}: invalid type '{type_str}'. Must be 'human' or 'agent'"
+                )
+
+            registrations.append(
+                PlayerRegistration(display_name=str(name), player_type=player_type)
+            )
+        else:
+            raise ConfigurationError(
+                f"Player entry {idx + 1} must be a string or dict with 'name' field"
+            )
+
+    player_count = len(registrations)
+    registrations_tuple = tuple(registrations)
 
     # Parse optional special roles
     optional_roles_raw = data.get("optional_roles", [])
@@ -136,6 +172,6 @@ def load_config_file(config_path: str | Path) -> GameSetupConfig:
 
     return GameSetupConfig(
         game_config=game_config,
-        registrations=registrations,
+        registrations=registrations_tuple,
         briefing_options=briefing_options,
     )

@@ -169,7 +169,96 @@
 - Concurrency between multiple agents: plan for turn-based message queue abstraction if expanding beyond single-thread CLI.
 - Stretch goals: web/socket-based UI, pluggable LLM agent management service, analytics dashboard for mission history.
 
+### Phase 10: LLM Agent Player Foundation
+- [x] **Player Type Designation** ✅
+	- Extend `PlayerRegistration` to include player type (human vs agent).
+	- Update config loader to parse agent designations from YAML.
+	- Update CLI prompts to ask for player type during interactive setup.
+	- Store player type in `Player` model for runtime access.
+	- Add comprehensive tests for player type flows.
+- [ ] **Agent Interface Abstraction**
+	- Define protocol/interface for agent decision-making operations (propose team, vote, mission decision, assassination guess).
+	- Define protocol for agent communication (make statements, respond to questions).
+	- Create observation state objects containing game context visible to each player.
+	- Design action schema for agent responses (structured output format).
+- [ ] **Google AI Studio Integration**
+	- Add google-generativeai dependency for Gemini API access.
+	- Create LLM client wrapper handling API authentication via environment variable.
+	- Implement prompt construction utilities for game state serialization.
+	- Add response parsing with validation and error recovery.
+	- Configure for Gemini 2.0 Flash model (note: Gemma 3 is not available via AI Studio API; Gemini 2.0 Flash is the current recommended model).
+- [ ] **Unit Tests**
+	- Test player type registration and serialization.
+	- Mock LLM client for deterministic agent behavior testing.
+	- Validate observation state construction for different game phases.
+	- Test action parsing with valid/invalid LLM responses.
+
+### Phase 11: Agent Decision Integration
+- [ ] **Team Proposal Agent Logic**
+	- Construct prompts with current game state, visible players, mission requirements.
+	- Parse team selection responses into player ID lists.
+	- Handle invalid responses (wrong count, unknown players, malformed output).
+- [ ] **Voting Agent Logic**
+	- Present proposed team and game context to agents.
+	- Parse approve/reject decisions from LLM responses.
+	- Support reasoning/explanation capture for transparency.
+- [ ] **Mission Execution Agent Logic**
+	- Provide mission context to agents on selected teams.
+	- Parse success/fail decisions respecting alignment constraints.
+	- Validate resistance agents cannot submit fail cards.
+- [ ] **Assassination Agent Logic**
+	- Present final game state to assassin agents.
+	- Parse Merlin identification guess.
+	- Handle invalid target selections.
+- [ ] **Integration Tests**
+	- Run full games with all-agent players using mocked LLM responses.
+	- Validate phase transitions work correctly with agent decisions.
+	- Test mixed human/agent games.
+
+### Phase 12: Agent Communication & Discussion
+- [ ] **Discussion Phase Design**
+	- Define when discussion occurs (pre-proposal, pre-vote, post-mission).
+	- Determine discussion turn order and length limits.
+	- Design prompts for generating statements vs responding to questions.
+- [ ] **Statement Generation**
+	- Agents generate statements about strategy, suspicions, defenses.
+	- Capture and log statements to transcript with appropriate visibility.
+	- Present agent statements to other players (human and agent).
+- [ ] **Question/Response Mechanic**
+	- Allow players (human or agent) to direct questions to specific players.
+	- Agent responders receive question context and generate answers.
+	- Track conversation threads for coherent multi-turn exchanges.
+- [ ] **CLI Integration**
+	- Display agent statements in CLI output.
+	- Prompt human players for optional statements during discussion.
+	- Show agent-to-agent conversations in real-time.
+- [ ] **Integration Tests**
+	- Test discussion phases with agent-generated content.
+	- Validate turn-taking and coherence of conversations.
+	- Ensure visibility rules respected in multi-agent discussions.
+
+### Phase 13: Agent Memory & Strategy
+- [ ] **Memory System**
+	- Agents maintain conversation history across phases.
+	- Track voting patterns, mission outcomes, and player claims.
+	- Provide historical context in prompts for informed decision-making.
+- [ ] **Strategy Refinement**
+	- Experiment with prompt engineering for better strategic play.
+	- Add role-specific instruction templates (Merlin caution, evil coordination).
+	- Implement few-shot examples for common game scenarios.
+- [ ] **Observability & Tuning**
+	- Log full LLM prompts and responses for analysis.
+	- Add metrics for agent decision quality (alignment with role objectives).
+	- Create tools for replaying agent games with different prompts/models.
+- [ ] **Documentation**
+	- Document agent configuration in YAML format.
+	- Provide examples of mixed human/agent game configs.
+	- Explain API key setup and model selection.
+
 ## 6. Next Steps
-1. Add CLI prompts so moderators can choose briefing delivery options at runtime.
-2. Persist briefing preference defaults alongside `GameConfig` for scripted runs and save files.
-3. Collect playtest feedback on briefing copy and adjust tone/examples accordingly.
+1. **Immediate**: Design and implement player type designation (Phase 10, task 1).
+2. Define agent interface protocols for decision-making operations.
+3. Integrate Google AI Studio API with Gemini 2.0 Flash model.
+4. Implement basic agent decision-making for all game phases.
+5. Add discussion/communication layer for agent interactions.
+

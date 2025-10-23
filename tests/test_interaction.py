@@ -80,7 +80,6 @@ def _play_resistance_victory(
         acknowledgement_responses.extend("" for _ in setup.players)
 
     responses = [
-        *names,
         *acknowledgement_responses,
         team_one,
         *["y"] * config.player_count,
@@ -100,6 +99,7 @@ def _play_resistance_victory(
         io=scripted,
         seed=seed,
         briefing_options=options,
+        registrations=registrations,
     )
     return result, scripted, assassin_id
 

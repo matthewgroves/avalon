@@ -23,3 +23,10 @@ class RoleType(str, Enum):
     MORDRED = "mordred"
     OBERON = "oberon"
     MINION_OF_MORDRED = "minion_of_mordred"
+
+
+class PlayerType(str, Enum):
+    """Player controller type (human or LLM agent)."""
+
+    HUMAN = "human"
+    AGENT = "agent"

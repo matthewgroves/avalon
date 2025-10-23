@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping, Optional, Protocol
 
-from .enums import Alignment, RoleType
+from .enums import Alignment, PlayerType, RoleType
 from .roles import ROLE_DEFINITIONS, RoleDefinition, role_alignment
 
 PlayerId = str
@@ -25,6 +25,7 @@ class Player:
     player_id: PlayerId
     display_name: str
     role: RoleType
+    player_type: PlayerType = PlayerType.HUMAN
     agent_hook: Optional[AgentHook] = None
     public_history_ids: tuple[str, ...] = ()
     private_note_keys: tuple[str, ...] = ()
@@ -44,3 +45,15 @@ class Player:
         """Convenience accessor for role metadata."""
 
         return ROLE_DEFINITIONS[self.role]
+
+    @property
+    def is_agent(self) -> bool:
+        """Return True if this player is controlled by an LLM agent."""
+
+        return self.player_type is PlayerType.AGENT
+
+    @property
+    def is_human(self) -> bool:
+        """Return True if this player is controlled by a human."""
+
+        return self.player_type is PlayerType.HUMAN

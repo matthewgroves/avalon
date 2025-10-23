@@ -1,0 +1,36 @@
+# Avalon Game Configuration with Agent Players
+# Example configuration showing mixed human and LLM agent players
+
+# Players can be specified in two formats:
+# 1. Simple format (string): defaults to human player
+# 2. Structured format (dict): specify name and type
+
+players:
+  # Human players (simple format)
+  - Alice
+  - Bob
+  
+  # Agent players (structured format)
+  - name: AgentCarol
+    type: agent
+  - name: AgentDave
+    type: agent
+  - name: AgentEve
+    type: agent
+
+# Optional special roles beyond Merlin and Assassin
+optional_roles:
+  - percival
+  - morgana
+
+# Briefing delivery configuration
+briefing:
+  mode: sequential
+  pause_before_each: false
+  pause_after_each: false
+
+# Optional: Fixed random seed for deterministic games
+random_seed: 42
+
+# Note: Agent players require GEMINI_API_KEY environment variable
+# Export your API key: export GEMINI_API_KEY="your-api-key-here"

@@ -8,7 +8,7 @@ from getpass import getpass
 from typing import Protocol, Sequence, Tuple
 
 from .config import GameConfig
-from .enums import Alignment, RoleType
+from .enums import Alignment, PlayerType, RoleType
 from .events import EventLog, EventVisibility, alignment_audience_tag, player_audience_tag
 from .exceptions import InvalidActionError
 from .game_state import GamePhase, GameState, MissionDecision
@@ -201,12 +201,35 @@ def _collect_registrations(
 ) -> list[PlayerRegistration]:
     registrations: list[PlayerRegistration] = []
     for seat in range(1, config.player_count + 1):
+        # Prompt for name
         while True:
             name = _read(backend, log, f"Enter display name for player {seat}: \n").strip()
             if name:
-                registrations.append(PlayerRegistration(display_name=name))
                 break
             _write(backend, log, "Names must be non-empty. Please try again.")
+
+        # Prompt for player type
+        while True:
+            type_input = (
+                _read(
+                    backend,
+                    log,
+                    f"Is {name} a human or agent player? (h/a) [h]: \n",
+                )
+                .strip()
+                .lower()
+            )
+            if not type_input or type_input == "h" or type_input == "human":
+                player_type = PlayerType.HUMAN
+                break
+            elif type_input == "a" or type_input == "agent":
+                player_type = PlayerType.AGENT
+                break
+            else:
+                _write(backend, log, "Please enter 'h' for human or 'a' for agent.")
+
+        registrations.append(PlayerRegistration(display_name=name, player_type=player_type))
+
     return registrations
 
 
