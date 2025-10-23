@@ -459,7 +459,10 @@ def _handle_mission(
 ) -> None:
     decisions: dict[str, MissionDecision] = {}
     assert state.current_team is not None  # defensive
-    mission_team = list(state.current_team)  # Save team before it's cleared
+
+    # Track current mission statements separately for display
+    current_mission_statements: list[Tuple[str, str, str]] = []
+
     for player_id in state.current_team:
         player = state.players_by_id[player_id]
 
@@ -477,9 +480,11 @@ def _handle_mission(
             # Display public reasoning (not private!) - shown after mission resolves
             # Note: We'll store this to display after the mission for hidden card aspect
             if action.public_reasoning:
-                # Store for later display
+                # Store in global list for agent observations (full history)
                 if public_statements is not None:
                     public_statements.append((player_id, "mission", action.public_reasoning))
+                # Also track locally for current mission display only
+                current_mission_statements.append((player_id, "mission", action.public_reasoning))
             continue
 
         while True:
@@ -515,18 +520,12 @@ def _handle_mission(
         f" {record.required_fail_count}",
     )
 
-    # Now display agent public reasoning about their mission actions
-    if public_statements and mission_team:
-        mission_statements = [
-            (pid, dtype, stmt)
-            for pid, dtype, stmt in public_statements
-            if dtype == "mission" and pid in mission_team
-        ]
-        if mission_statements:
-            _write(backend, log, "\nPlayers explain their actions:")
-            for player_id, _, statement in mission_statements:
-                player_name = state.players_by_id[player_id].display_name
-                _write(backend, log, f'  {player_name}: "{statement}"')
+    # Now display agent public reasoning about their mission actions (current mission only)
+    if current_mission_statements:
+        _write(backend, log, "\nPlayers explain their actions:")
+        for player_id, _, statement in current_mission_statements:
+            player_name = state.players_by_id[player_id].display_name
+            _write(backend, log, f'  {player_name}: "{statement}"')
 
 
 def _handle_assassination(
