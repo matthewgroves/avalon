@@ -12,6 +12,7 @@ from .enums import Alignment, PlayerType, RoleType
 from .events import EventLog, EventVisibility, alignment_audience_tag, player_audience_tag
 from .exceptions import InvalidActionError
 from .game_state import GamePhase, GameState, MissionDecision
+from .logging_manager import LoggingManager
 from .players import Player
 from .roles import ROLE_DEFINITIONS, build_role_list
 from .setup import PlayerRegistration, SetupResult, perform_setup
@@ -140,6 +141,7 @@ def run_interactive_game(
     briefing_options: BriefingOptions | None = None,
     registrations: Sequence[PlayerRegistration] | None = None,
     agent_manager: Any | None = None,  # AgentManager, avoiding circular import
+    logging_manager: LoggingManager | None = None,
 ) -> InteractionResult:
     """Run an Avalon game loop using the provided interaction backend.
 
@@ -151,6 +153,7 @@ def run_interactive_game(
         briefing_options: Briefing delivery configuration.
         registrations: Pre-configured player registrations.
         agent_manager: Optional agent manager for LLM agent players.
+        logging_manager: Optional logging manager for enhanced agent decision logging.
 
     Returns:
         InteractionResult with final state and transcript.
@@ -159,6 +162,7 @@ def run_interactive_game(
     backend = io or CLIInteraction()
     log: list[InteractionLogEntry] = []
     delivery_options = briefing_options or BriefingOptions()
+    log_mgr = logging_manager or LoggingManager(enabled=False)
 
     _write(backend, log, "\n=== Avalon Setup ===")
     if registrations is None:
@@ -179,13 +183,13 @@ def run_interactive_game(
     while state.phase is not GamePhase.GAME_OVER:
         _announce_round(state, backend, log)
         if state.phase is GamePhase.TEAM_PROPOSAL:
-            _handle_team_proposal(state, backend, log, agent_manager, public_statements)
+            _handle_team_proposal(state, backend, log, agent_manager, public_statements, log_mgr)
         elif state.phase is GamePhase.TEAM_VOTE:
-            _handle_team_vote(state, backend, log, agent_manager, public_statements)
+            _handle_team_vote(state, backend, log, agent_manager, public_statements, log_mgr)
         elif state.phase is GamePhase.MISSION:
-            _handle_mission(state, backend, log, agent_manager, public_statements)
+            _handle_mission(state, backend, log, agent_manager, public_statements, log_mgr)
         elif state.phase is GamePhase.ASSASSINATION_PENDING:
-            _handle_assassination(state, backend, log, agent_manager, public_statements)
+            _handle_assassination(state, backend, log, agent_manager, public_statements, log_mgr)
         else:  # pragma: no cover - defensive guard
             raise RuntimeError(f"Unhandled phase: {state.phase}")
 
@@ -333,6 +337,7 @@ def _handle_team_proposal(
     log: list[InteractionLogEntry],
     agent_manager: Any | None = None,
     public_statements: list[Tuple[str, str, str]] | None = None,
+    logging_manager: LoggingManager | None = None,
 ) -> None:
     required_size = state.config.mission_config.team_sizes[state.round_number - 1]
     leader = state.current_leader
@@ -341,7 +346,11 @@ def _handle_team_proposal(
     # Check if leader is an agent
     if agent_manager and agent_manager.is_agent(leader.player_id, state):
         _write(backend, log, f"  [Agent {leader.display_name} is selecting team...]")
+        observation = agent_manager._build_observation(leader.player_id, state)
         proposal = agent_manager.propose_team(leader.player_id, state)
+        # Log the decision if logging is enabled
+        if logging_manager:
+            logging_manager.log_team_proposal(leader.player_id, observation, proposal)
         team = proposal.team
         # Display public reasoning (not private!)
         if proposal.public_reasoning:
@@ -383,13 +392,18 @@ def _handle_team_vote(
     log: list[InteractionLogEntry],
     agent_manager: Any | None = None,
     public_statements: list[Tuple[str, str, str]] | None = None,
+    logging_manager: LoggingManager | None = None,
 ) -> None:
     votes: dict[str, bool] = {}
     for player in state.players:
         # Check if player is an agent
         if agent_manager and agent_manager.is_agent(player.player_id, state):
             _write(backend, log, f"  [Agent {player.display_name} is voting...]")
+            observation = agent_manager._build_observation(player.player_id, state)
             decision = agent_manager.vote_on_team(player.player_id, state)
+            # Log the decision if logging is enabled
+            if logging_manager:
+                logging_manager.log_team_vote(player.player_id, observation, decision)
             votes[player.player_id] = decision.approve
             vote_str = "APPROVE" if decision.approve else "REJECT"
             _write(backend, log, f"  {player.display_name}: {vote_str}")
@@ -441,6 +455,7 @@ def _handle_mission(
     log: list[InteractionLogEntry],
     agent_manager: Any | None = None,
     public_statements: list[Tuple[str, str, str]] | None = None,
+    logging_manager: LoggingManager | None = None,
 ) -> None:
     decisions: dict[str, MissionDecision] = {}
     assert state.current_team is not None  # defensive
@@ -451,7 +466,11 @@ def _handle_mission(
         # Check if player is an agent
         if agent_manager and agent_manager.is_agent(player_id, state):
             _write(backend, log, f"  [Agent {player.display_name} is submitting card...]")
+            observation = agent_manager._build_observation(player_id, state)
             action = agent_manager.execute_mission(player_id, state)
+            # Log the decision if logging is enabled
+            if logging_manager:
+                logging_manager.log_mission_action(player_id, observation, action)
             decisions[player_id] = (
                 MissionDecision.SUCCESS if action.success else MissionDecision.FAIL
             )
@@ -516,6 +535,7 @@ def _handle_assassination(
     log: list[InteractionLogEntry],
     agent_manager: Any | None = None,
     public_statements: list[Tuple[str, str, str]] | None = None,
+    logging_manager: LoggingManager | None = None,
 ) -> None:
     assassin_ids = state.assassin_ids
     if not assassin_ids:
@@ -535,7 +555,11 @@ def _handle_assassination(
     # Check if assassin is an agent
     if agent_manager and agent_manager.is_agent(assassin_id, state):
         _write(backend, log, f"  [Agent {assassin.display_name} is guessing Merlin...]")
+        observation = agent_manager._build_observation(assassin_id, state)
         guess = agent_manager.guess_merlin(assassin_id, state)
+        # Log the decision if logging is enabled
+        if logging_manager:
+            logging_manager.log_assassination(assassin_id, observation, guess)
         target_id = guess.target_id
         # Display public reasoning (not private!)
         if guess.public_reasoning:

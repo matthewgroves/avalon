@@ -24,6 +24,10 @@ optional_roles:
 # Seed for reproducible role assignments (optional - comment out for random)
 # random_seed: 42
 
+# Enhanced logging: Creates timestamped logs/ directory with per-agent decision logs
+# Includes full observations, private reasoning, and public reasoning
+enhanced_logging: true
+
 briefing_options:
   show_role: true
   show_alignment: true

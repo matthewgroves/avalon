@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore
 
 from .config import GameConfig
 from .enums import PlayerType, RoleType
@@ -23,6 +23,7 @@ class GameSetupConfig:
     game_config: GameConfig
     registrations: tuple[PlayerRegistration, ...]
     briefing_options: BriefingOptions
+    enhanced_logging: bool = False
 
 
 def load_config_file(config_path: str | Path) -> GameSetupConfig:
@@ -173,6 +174,11 @@ def load_config_file(config_path: str | Path) -> GameSetupConfig:
     if not isinstance(lady_of_lake, bool):
         raise ConfigurationError("'lady_of_the_lake_enabled' must be true or false")
 
+    # Parse enhanced logging option
+    enhanced_logging = data.get("enhanced_logging", False)
+    if not isinstance(enhanced_logging, bool):
+        raise ConfigurationError("'enhanced_logging' must be true or false")
+
     game_config = GameConfig(
         player_count=player_count,
         roles=roles,
@@ -184,4 +190,5 @@ def load_config_file(config_path: str | Path) -> GameSetupConfig:
         game_config=game_config,
         registrations=registrations_tuple,
         briefing_options=briefing_options,
+        enhanced_logging=enhanced_logging,
     )

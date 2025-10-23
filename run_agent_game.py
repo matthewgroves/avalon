@@ -7,6 +7,7 @@ from avalon.agent_manager import AgentManager
 from avalon.config_loader import load_config_file
 from avalon.interaction import CLIInteraction, run_interactive_game
 from avalon.llm_client import GeminiClient
+from avalon.logging_manager import LoggingManager
 
 
 def main() -> None:
@@ -67,6 +68,16 @@ def main() -> None:
     setup = perform_setup(setup_config.game_config, setup_config.registrations)
     agent_mgr = AgentManager.from_setup(setup, gemini_client)
 
+    # Create logging manager if enhanced logging is enabled
+    log_mgr = (
+        LoggingManager(enabled=setup_config.enhanced_logging)
+        if setup_config.enhanced_logging
+        else None
+    )
+    if log_mgr and log_mgr.enabled:
+        print(f"Enhanced logging enabled: {log_mgr.log_dir}")
+        print()
+
     # Run the game
     try:
         result = run_interactive_game(
@@ -75,6 +86,7 @@ def main() -> None:
             briefing_options=setup_config.briefing_options,
             registrations=setup_config.registrations,
             agent_manager=agent_mgr,
+            logging_manager=log_mgr,
         )
 
         # Print final results
