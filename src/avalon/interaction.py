@@ -169,16 +169,23 @@ def run_interactive_game(
     _announce_roster(state.players, backend, log)
     _deliver_private_briefings(setup, backend, log, delivery_options)
 
+    # Track public statements from agents for observation building
+    public_statements: list[Tuple[str, str, str]] = []
+
+    # Pass reference to agent manager if present
+    if agent_manager:
+        agent_manager.set_public_statements(public_statements)
+
     while state.phase is not GamePhase.GAME_OVER:
         _announce_round(state, backend, log)
         if state.phase is GamePhase.TEAM_PROPOSAL:
-            _handle_team_proposal(state, backend, log, agent_manager)
+            _handle_team_proposal(state, backend, log, agent_manager, public_statements)
         elif state.phase is GamePhase.TEAM_VOTE:
-            _handle_team_vote(state, backend, log, agent_manager)
+            _handle_team_vote(state, backend, log, agent_manager, public_statements)
         elif state.phase is GamePhase.MISSION:
-            _handle_mission(state, backend, log, agent_manager)
+            _handle_mission(state, backend, log, agent_manager, public_statements)
         elif state.phase is GamePhase.ASSASSINATION_PENDING:
-            _handle_assassination(state, backend, log, agent_manager)
+            _handle_assassination(state, backend, log, agent_manager, public_statements)
         else:  # pragma: no cover - defensive guard
             raise RuntimeError(f"Unhandled phase: {state.phase}")
 
@@ -325,6 +332,7 @@ def _handle_team_proposal(
     backend: InteractionIO,
     log: list[InteractionLogEntry],
     agent_manager: Any | None = None,
+    public_statements: list[Tuple[str, str, str]] | None = None,
 ) -> None:
     required_size = state.config.mission_config.team_sizes[state.round_number - 1]
     leader = state.current_leader
@@ -335,8 +343,14 @@ def _handle_team_proposal(
         _write(backend, log, f"  [Agent {leader.display_name} is selecting team...]")
         proposal = agent_manager.propose_team(leader.player_id, state)
         team = proposal.team
-        if proposal.reasoning:
-            _write(backend, log, f"  Reasoning: {proposal.reasoning}")
+        # Display public reasoning (not private!)
+        if proposal.public_reasoning:
+            _write(backend, log, f'  {leader.display_name} says: "{proposal.public_reasoning}"')
+            # Track public statement for other agents
+            if public_statements is not None:
+                public_statements.append(
+                    (leader.player_id, "team_proposal", proposal.public_reasoning)
+                )
         try:
             state.propose_team(leader.player_id, team)
             _write(backend, log, f"Proposed team: {', '.join(team)}")
@@ -368,6 +382,7 @@ def _handle_team_vote(
     backend: InteractionIO,
     log: list[InteractionLogEntry],
     agent_manager: Any | None = None,
+    public_statements: list[Tuple[str, str, str]] | None = None,
 ) -> None:
     votes: dict[str, bool] = {}
     for player in state.players:
@@ -378,8 +393,12 @@ def _handle_team_vote(
             votes[player.player_id] = decision.approve
             vote_str = "APPROVE" if decision.approve else "REJECT"
             _write(backend, log, f"  {player.display_name}: {vote_str}")
-            if decision.reasoning:
-                _write(backend, log, f"    Reasoning: {decision.reasoning}")
+            # Display public reasoning (not private!)
+            if decision.public_reasoning:
+                _write(backend, log, f'    Says: "{decision.public_reasoning}"')
+                # Track public statement for other agents
+                if public_statements is not None:
+                    public_statements.append((player.player_id, "vote", decision.public_reasoning))
             continue
 
         while True:
@@ -421,9 +440,11 @@ def _handle_mission(
     backend: InteractionIO,
     log: list[InteractionLogEntry],
     agent_manager: Any | None = None,
+    public_statements: list[Tuple[str, str, str]] | None = None,
 ) -> None:
     decisions: dict[str, MissionDecision] = {}
     assert state.current_team is not None  # defensive
+    mission_team = list(state.current_team)  # Save team before it's cleared
     for player_id in state.current_team:
         player = state.players_by_id[player_id]
 
@@ -434,8 +455,12 @@ def _handle_mission(
             decisions[player_id] = (
                 MissionDecision.SUCCESS if action.success else MissionDecision.FAIL
             )
-            if action.reasoning:
-                _write(backend, log, f"    Reasoning: {action.reasoning}")
+            # Display public reasoning (not private!) - shown after mission resolves
+            # Note: We'll store this to display after the mission for hidden card aspect
+            if action.public_reasoning:
+                # Store for later display
+                if public_statements is not None:
+                    public_statements.append((player_id, "mission", action.public_reasoning))
             continue
 
         while True:
@@ -471,12 +496,26 @@ def _handle_mission(
         f" {record.required_fail_count}",
     )
 
+    # Now display agent public reasoning about their mission actions
+    if public_statements and mission_team:
+        mission_statements = [
+            (pid, dtype, stmt)
+            for pid, dtype, stmt in public_statements
+            if dtype == "mission" and pid in mission_team
+        ]
+        if mission_statements:
+            _write(backend, log, "\nPlayers explain their actions:")
+            for player_id, _, statement in mission_statements:
+                player_name = state.players_by_id[player_id].display_name
+                _write(backend, log, f'  {player_name}: "{statement}"')
+
 
 def _handle_assassination(
     state: GameState,
     backend: InteractionIO,
     log: list[InteractionLogEntry],
     agent_manager: Any | None = None,
+    public_statements: list[Tuple[str, str, str]] | None = None,
 ) -> None:
     assassin_ids = state.assassin_ids
     if not assassin_ids:
@@ -498,8 +537,12 @@ def _handle_assassination(
         _write(backend, log, f"  [Agent {assassin.display_name} is guessing Merlin...]")
         guess = agent_manager.guess_merlin(assassin_id, state)
         target_id = guess.target_id
-        if guess.reasoning:
-            _write(backend, log, f"  Reasoning: {guess.reasoning}")
+        # Display public reasoning (not private!)
+        if guess.public_reasoning:
+            _write(backend, log, f'  {assassin.display_name} says: "{guess.public_reasoning}"')
+            # Track public statement for other agents
+            if public_statements is not None:
+                public_statements.append((assassin_id, "assassination", guess.public_reasoning))
         try:
             record = state.perform_assassination(assassin_id, target_id)
             result = "succeeds" if record.success else "fails"
@@ -569,6 +612,11 @@ def _deliver_private_briefings(
     players_by_id = {player.player_id: player for player in setup.players}
     for briefing in setup.briefings:
         player = briefing.player
+
+        # Skip displaying briefings for agent players
+        if player.is_agent:
+            continue
+
         definition = ROLE_DEFINITIONS[player.role]
         lines = [
             f"Private briefing for {player.display_name} ({player.player_id})",
@@ -577,18 +625,37 @@ def _deliver_private_briefings(
         ]
         knowledge = briefing.knowledge
         if knowledge.visible_player_ids:
-            visible_names = [
-                f"{players_by_id[player_id].display_name} ({player_id})"
-                for player_id in knowledge.visible_player_ids
-            ]
+            visible_names = []
+            for player_id in knowledge.visible_player_ids:
+                known_player = players_by_id[player_id]
+                known_role = known_player.role
+                known_def = ROLE_DEFINITIONS[known_role]
+                # Show detailed info about what we know
+                visible_names.append(
+                    f"{known_player.display_name} ({player_id}) - "
+                    f"{known_role.value.replace('_', ' ').title()} "
+                    f"[{known_def.alignment.value.title()}]"
+                )
             lines.append("You learn the identities of: " + ", ".join(visible_names))
         if knowledge.ambiguous_player_id_groups:
             group_descriptions = []
             for group in knowledge.ambiguous_player_id_groups:
-                group_names = [
-                    f"{players_by_id[player_id].display_name} ({player_id})" for player_id in group
-                ]
-                group_descriptions.append(", ".join(group_names))
+                group_names = []
+                # Determine what roles are possible for this ambiguous group
+                possible_roles = set()
+                for player_id in group:
+                    known_player = players_by_id[player_id]
+                    possible_roles.add(known_player.role.value.replace("_", " ").title())
+
+                for player_id in group:
+                    known_player = players_by_id[player_id]
+                    group_names.append(f"{known_player.display_name} ({player_id})")
+
+                # Add explanation of what each could be
+                roles_desc = " or ".join(sorted(possible_roles))
+                group_descriptions.append(
+                    f"[{', '.join(group_names)}] - each could be: {roles_desc}"
+                )
             lines.append("Ambiguous intel: " + " | ".join(group_descriptions))
         if not knowledge.has_information:
             lines.append("No additional intel is provided beyond your role.")

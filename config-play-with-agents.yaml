@@ -1,0 +1,30 @@
+# Configuration for playing with 1 human and 4 AI agents
+# You'll play as a human alongside 4 Gemini-powered agents
+
+game_config:
+  num_players: 5
+
+players:
+  - name: "Matthew"      # That's you! (human player)
+    type: human
+  - name: "Agent Alice"  # AI player
+    type: agent
+  - name: "Agent Bob"    # AI player
+    type: agent
+  - name: "Agent Carol"  # AI player
+    type: agent
+  - name: "Agent Dave"   # AI player
+    type: agent
+
+# Optional roles for more interesting gameplay
+optional_roles:
+  - percival
+  - morgana
+
+# Seed for reproducible role assignments (optional - comment out for random)
+# random_seed: 42
+
+briefing_options:
+  show_role: true
+  show_alignment: true
+  show_knowledge: true

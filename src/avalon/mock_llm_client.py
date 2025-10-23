@@ -51,7 +51,11 @@ class MockLLMClient:
 
         # Default fallback: select first N players
         team = observation.all_player_ids[: observation.required_team_size]
-        return TeamProposal(team=team, reasoning="Mock default proposal")
+        return TeamProposal(
+            team=team,
+            private_reasoning="Mock default proposal",
+            public_reasoning="I chose these players",
+        )
 
     def vote_on_team(self, observation: AgentObservation) -> VoteDecision:
         """Return scripted or generated vote decision."""
@@ -64,7 +68,11 @@ class MockLLMClient:
             return response
 
         # Default fallback: always approve
-        return VoteDecision(approve=True, reasoning="Mock default approve")
+        return VoteDecision(
+            approve=True,
+            private_reasoning="Mock default approve",
+            public_reasoning="This team looks good",
+        )
 
     def execute_mission(self, observation: AgentObservation) -> MissionAction:
         """Return scripted or generated mission action."""
@@ -77,7 +85,11 @@ class MockLLMClient:
             return response
 
         # Default fallback: always success
-        return MissionAction(success=True, reasoning="Mock default success")
+        return MissionAction(
+            success=True,
+            private_reasoning="Mock default success",
+            public_reasoning="Playing for the team",
+        )
 
     def guess_merlin(self, observation: AgentObservation) -> AssassinationGuess:
         """Return scripted or generated assassination guess."""
@@ -93,7 +105,9 @@ class MockLLMClient:
 
         # Default fallback: guess first player
         return AssassinationGuess(
-            target_id=observation.all_player_ids[0], reasoning="Mock default guess"
+            target_id=observation.all_player_ids[0],
+            private_reasoning="Mock default guess",
+            public_reasoning="They seemed suspicious",
         )
 
 
@@ -114,22 +128,40 @@ def create_simple_agent_strategy(
     def propose_team(obs: AgentObservation) -> TeamProposal:
         # Propose first N players
         team = obs.all_player_ids[: obs.required_team_size]
-        return TeamProposal(team=team, reasoning="Simple strategy: first N players")
+        return TeamProposal(
+            team=team,
+            private_reasoning="Simple strategy: first N players",
+            public_reasoning="These players seem trustworthy",
+        )
 
     def vote_on_team(obs: AgentObservation) -> VoteDecision:
         action = "approve" if always_approve else "reject"
-        return VoteDecision(approve=always_approve, reasoning=f"Always {action}")
+        return VoteDecision(
+            approve=always_approve,
+            private_reasoning=f"Always {action}",
+            public_reasoning="I think this team will work well"
+            if always_approve
+            else "I don't trust this team",
+        )
 
     def execute_mission(obs: AgentObservation) -> MissionAction:
         action = "succeed" if always_succeed else "fail"
-        return MissionAction(success=always_succeed, reasoning=f"Always {action}")
+        return MissionAction(
+            success=always_succeed,
+            private_reasoning=f"Always {action}",
+            public_reasoning="Doing my best for the team",
+        )
 
     def guess_merlin(obs: AgentObservation) -> AssassinationGuess:
         # Guess a random player (first non-self)
         target = next(
             (pid for pid in obs.all_player_ids if pid != obs.player_id), obs.all_player_ids[0]
         )
-        return AssassinationGuess(target_id=target, reasoning="Simple guess")
+        return AssassinationGuess(
+            target_id=target,
+            private_reasoning="Simple guess",
+            public_reasoning="They made suspiciously good decisions",
+        )
 
     return MockLLMClient(
         propose_team_fn=propose_team,

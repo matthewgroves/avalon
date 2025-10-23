@@ -141,27 +141,46 @@ def test_team_proposal_structure() -> None:
     """TeamProposal correctly stores team and reasoning."""
     proposal = TeamProposal(
         team=("player_1", "player_2", "player_3"),
-        reasoning="Choosing trusted players based on voting patterns",
+        private_reasoning="Choosing trusted players based on voting patterns",
+        public_reasoning="These players work well together",
     )
     assert len(proposal.team) == 3
     assert "player_1" in proposal.team
-    assert proposal.reasoning != ""
+    assert proposal.private_reasoning != ""
+    assert proposal.public_reasoning != ""
 
 
 def test_vote_decision_structure() -> None:
     """VoteDecision correctly stores approval and reasoning."""
-    approve = VoteDecision(approve=True, reasoning="Team composition looks good")
-    reject = VoteDecision(approve=False, reasoning="Suspicious behavior from player_3")
+    approve = VoteDecision(
+        approve=True,
+        private_reasoning="Team composition looks good",
+        public_reasoning="I trust this team",
+    )
+    reject = VoteDecision(
+        approve=False,
+        private_reasoning="Suspicious behavior from player_3",
+        public_reasoning="This team doesn't feel right",
+    )
 
     assert approve.approve is True
     assert reject.approve is False
-    assert approve.reasoning != ""
+    assert approve.private_reasoning != ""
+    assert approve.public_reasoning != ""
 
 
 def test_mission_action_structure() -> None:
     """MissionAction correctly stores card choice and reasoning."""
-    success_action = MissionAction(success=True, reasoning="Resistance player")
-    fail_action = MissionAction(success=False, reasoning="Sabotaging mission")
+    success_action = MissionAction(
+        success=True,
+        private_reasoning="Resistance player",
+        public_reasoning="Supporting the team",
+    )
+    fail_action = MissionAction(
+        success=False,
+        private_reasoning="Sabotaging mission",
+        public_reasoning="I played success but someone failed",
+    )
 
     assert success_action.success is True
     assert fail_action.success is False
@@ -170,10 +189,13 @@ def test_mission_action_structure() -> None:
 def test_assassination_guess_structure() -> None:
     """AssassinationGuess correctly stores target and reasoning."""
     guess = AssassinationGuess(
-        target_id="player_3", reasoning="Consistent good plays suggest Merlin"
+        target_id="player_3",
+        private_reasoning="Consistent good plays suggest Merlin",
+        public_reasoning="They seemed too knowledgeable",
     )
     assert guess.target_id == "player_3"
-    assert guess.reasoning != ""
+    assert guess.private_reasoning != ""
+    assert guess.public_reasoning != ""
 
 
 def test_observation_with_different_round_sizes() -> None:
@@ -230,16 +252,24 @@ def test_mock_llm_client_scripted_responses() -> None:
     """MockLLMClient returns scripted responses in sequence."""
     mock_client = MockLLMClient(
         team_proposals=[
-            TeamProposal(("player_1", "player_2"), "First proposal"),
-            TeamProposal(("player_3", "player_4"), "Second proposal"),
+            TeamProposal(
+                ("player_1", "player_2"),
+                private_reasoning="First proposal",
+                public_reasoning="Team one",
+            ),
+            TeamProposal(
+                ("player_3", "player_4"),
+                private_reasoning="Second proposal",
+                public_reasoning="Team two",
+            ),
         ],
         vote_decisions=[
-            VoteDecision(True, "Approve first"),
-            VoteDecision(False, "Reject second"),
+            VoteDecision(True, "Approve first", "Looks good"),
+            VoteDecision(False, "Reject second", "Not good"),
         ],
         mission_actions=[
-            MissionAction(True, "Success first"),
-            MissionAction(False, "Fail second"),
+            MissionAction(True, "Success first", "Supporting"),
+            MissionAction(False, "Fail second", "Sabotaging"),
         ],
     )
 
@@ -255,11 +285,11 @@ def test_mock_llm_client_scripted_responses() -> None:
     # Test scripted responses
     proposal1 = mock_client.propose_team(observation)
     assert proposal1.team == ("player_1", "player_2")
-    assert proposal1.reasoning == "First proposal"
+    assert proposal1.private_reasoning == "First proposal"
 
     proposal2 = mock_client.propose_team(observation)
     assert proposal2.team == ("player_3", "player_4")
-    assert proposal2.reasoning == "Second proposal"
+    assert proposal2.private_reasoning == "Second proposal"
 
     vote1 = mock_client.vote_on_team(observation)
     assert vote1.approve is True
@@ -280,7 +310,11 @@ def test_mock_llm_client_strategy_functions() -> None:
     def custom_propose(obs: AgentObservation) -> TeamProposal:
         # Always include the agent themselves
         team = (obs.player_id,) + obs.all_player_ids[1 : obs.required_team_size]
-        return TeamProposal(team=team, reasoning="Always include self")
+        return TeamProposal(
+            team=team,
+            private_reasoning="Always include self",
+            public_reasoning="Including myself for reliability",
+        )
 
     mock_client = MockLLMClient(propose_team_fn=custom_propose)
 
@@ -294,7 +328,7 @@ def test_mock_llm_client_strategy_functions() -> None:
 
     proposal = mock_client.propose_team(observation)
     assert "player_1" in proposal.team
-    assert proposal.reasoning == "Always include self"
+    assert proposal.private_reasoning == "Always include self"
 
 
 def test_create_simple_agent_strategy() -> None:

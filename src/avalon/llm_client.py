@@ -267,6 +267,17 @@ KEY STRATEGIES:
                     f"({mission.fail_count} fails)"
                 )
 
+        # Public statements from other players
+        if observation.public_statements:
+            lines.append("")
+            lines.append("Public reasoning from other players:")
+            lines.append("(Remember: players may lie or mislead about their reasoning)")
+            for player_id, decision_type, statement in observation.public_statements[-10:]:
+                player_name = observation.all_player_names[
+                    observation.all_player_ids.index(player_id)
+                ]
+                lines.append(f"  - {player_name} ({decision_type}): {statement}")
+
         return "\n".join(lines)
 
     def propose_team(self, observation: AgentObservation) -> TeamProposal:
@@ -289,10 +300,11 @@ Consider:
 - Deception: How can you justify this team regardless of your true role?
 - Table dynamics: Who has been trusted/suspected so far?
 
-Respond with a JSON object in this format:
+Respond with a JSON object with BOTH private and public reasoning:
 {{
   "team": ["player_1", "player_2"],
-  "reasoning": "brief explanation of your choice"
+  "private_reasoning": "your actual strategic thinking (only you see this)",
+  "public_reasoning": "what you'll tell other players (they see this - use for deception)"
 }}
 
 Your response:"""
@@ -301,15 +313,20 @@ Your response:"""
         parsed = self._parse_json_response(response_text)
 
         team = tuple(parsed.get("team", []))
-        reasoning = parsed.get("reasoning", "")
+        private_reasoning = parsed.get("private_reasoning", "")
+        public_reasoning = parsed.get("public_reasoning", "")
 
         # Validate team size
         if len(team) != observation.required_team_size:
             # Fallback: take first N players if invalid
             team = observation.all_player_ids[: observation.required_team_size]
-            reasoning = f"Invalid team size, using fallback. Original: {reasoning}"
+            private_reasoning = f"Invalid team size, using fallback. Original: {private_reasoning}"
 
-        return TeamProposal(team=team, reasoning=reasoning)
+        return TeamProposal(
+            team=team,
+            private_reasoning=private_reasoning,
+            public_reasoning=public_reasoning,
+        )
 
     def vote_on_team(self, observation: AgentObservation) -> VoteDecision:
         """Generate a vote decision using Gemini."""
@@ -332,10 +349,11 @@ Consider:
 = automatic mission failure
 - Patterns: Avoid voting in ways that obviously reveal your role
 
-Respond with a JSON object in this format:
+Respond with a JSON object with BOTH private and public reasoning:
 {{
   "approve": true,
-  "reasoning": "brief explanation of your vote"
+  "private_reasoning": "your actual strategic thinking (only you see this)",
+  "public_reasoning": "what you'll tell other players (they see this - use for deception)"
 }}
 
 Your response:"""
@@ -344,9 +362,14 @@ Your response:"""
         parsed = self._parse_json_response(response_text)
 
         approve = parsed.get("approve", False)
-        reasoning = parsed.get("reasoning", "")
+        private_reasoning = parsed.get("private_reasoning", "")
+        public_reasoning = parsed.get("public_reasoning", "")
 
-        return VoteDecision(approve=approve, reasoning=reasoning)
+        return VoteDecision(
+            approve=approve,
+            private_reasoning=private_reasoning,
+            public_reasoning=public_reasoning,
+        )
 
     def execute_mission(self, observation: AgentObservation) -> MissionAction:
         """Generate a mission action using Gemini."""
@@ -371,10 +394,11 @@ Consider (if you're a Minion):
 - Team composition: Are there other minions who might fail?
 - Cover strategy: Sometimes playing success builds trust for later betrayal
 
-Respond with a JSON object in this format:
+Respond with a JSON object with BOTH private and public reasoning:
 {{
   "success": true,
-  "reasoning": "brief explanation of your choice"
+  "private_reasoning": "your actual strategic thinking (only you see this)",
+  "public_reasoning": "what you'll tell other players (they see this - use for deception)"
 }}
 
 Your response:"""
@@ -383,7 +407,8 @@ Your response:"""
         parsed = self._parse_json_response(response_text)
 
         success = parsed.get("success", True)
-        reasoning = parsed.get("reasoning", "")
+        private_reasoning = parsed.get("private_reasoning", "")
+        public_reasoning = parsed.get("public_reasoning", "")
 
         # Force resistance to play success
         from .enums import Alignment
@@ -391,9 +416,13 @@ Your response:"""
         if observation.alignment == Alignment.RESISTANCE:
             success = True
             if not parsed.get("success", True):
-                reasoning += " [Forced to SUCCESS - Resistance player]"
+                private_reasoning += " [Forced to SUCCESS - Resistance player]"
 
-        return MissionAction(success=success, reasoning=reasoning)
+        return MissionAction(
+            success=success,
+            private_reasoning=private_reasoning,
+            public_reasoning=public_reasoning,
+        )
 
     def guess_merlin(self, observation: AgentObservation) -> AssassinationGuess:
         """Generate an assassination guess using Gemini."""
@@ -421,10 +450,11 @@ ANALYSIS APPROACH:
 - Avoid obvious targets: Sometimes the loudest "leader" isn't Merlin
 - Look for subtle guidance: Merlin must hide while helping
 
-Respond with a JSON object in this format:
+Respond with a JSON object with BOTH private and public reasoning:
 {{
   "target_id": "player_3",
-  "reasoning": "brief explanation of your guess"
+  "private_reasoning": "your actual analysis (only you see this)",
+  "public_reasoning": "what you'll tell other players (they see this)"
 }}
 
 Your response:"""
@@ -433,14 +463,19 @@ Your response:"""
         parsed = self._parse_json_response(response_text)
 
         target_id = parsed.get("target_id", observation.all_player_ids[0])
-        reasoning = parsed.get("reasoning", "")
+        private_reasoning = parsed.get("private_reasoning", "")
+        public_reasoning = parsed.get("public_reasoning", "")
 
         # Validate target exists
         if target_id not in observation.all_player_ids:
             target_id = observation.all_player_ids[0]
-            reasoning = f"Invalid target, using fallback. Original: {reasoning}"
+            private_reasoning = f"Invalid target, using fallback. Original: {private_reasoning}"
 
-        return AssassinationGuess(target_id=target_id, reasoning=reasoning)
+        return AssassinationGuess(
+            target_id=target_id,
+            private_reasoning=private_reasoning,
+            public_reasoning=public_reasoning,
+        )
 
     def _parse_json_response(self, response_text: str) -> dict[str, Any]:
         """Parse JSON from LLM response, handling markdown code blocks."""

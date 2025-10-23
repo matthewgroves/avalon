@@ -39,6 +39,7 @@ class AgentManager:
 
     briefings_by_player_id: dict[PlayerId, PlayerBriefing]
     client: LLMClient
+    public_statements: list[tuple[PlayerId, str, str]] | None = None
 
     @classmethod
     def from_setup(cls, setup_result: SetupResult, client: LLMClient) -> AgentManager:
@@ -53,6 +54,10 @@ class AgentManager:
         """
         briefings_map = {briefing.player.player_id: briefing for briefing in setup_result.briefings}
         return cls(briefings_by_player_id=briefings_map, client=client)
+
+    def set_public_statements(self, statements: list[tuple[PlayerId, str, str]]) -> None:
+        """Update the public statements list reference."""
+        self.public_statements = statements
 
     def is_agent(self, player_id: PlayerId, state: GameState) -> bool:
         """Check if a player is an agent."""
@@ -114,7 +119,9 @@ class AgentManager:
     def _build_observation(self, player_id: PlayerId, state: GameState) -> AgentObservation:
         """Build an observation for an agent player."""
         briefing = self.briefings_by_player_id[player_id]
-        return build_observation(state, player_id, briefing.knowledge)
+        # Pass public statements if available
+        statements_tuple = tuple(self.public_statements) if self.public_statements else ()
+        return build_observation(state, player_id, briefing.knowledge, statements_tuple)
 
 
 __all__ = ["AgentManager", "LLMClient"]

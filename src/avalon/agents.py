@@ -58,13 +58,18 @@ class AgentObservation:
     required_team_size: int
     required_fail_count: int
 
+    # Public reasoning from other players' decisions
+    # Format: List of (player_id, decision_type, public_reasoning) tuples
+    public_statements: Tuple[Tuple[PlayerId, str, str], ...] = ()
+
 
 @dataclass(frozen=True, slots=True)
 class TeamProposal:
     """Agent's team proposal response."""
 
     team: Tuple[PlayerId, ...]
-    reasoning: str = ""
+    private_reasoning: str = ""
+    public_reasoning: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,7 +77,8 @@ class VoteDecision:
     """Agent's vote on a proposed team."""
 
     approve: bool
-    reasoning: str = ""
+    private_reasoning: str = ""
+    public_reasoning: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,15 +86,17 @@ class MissionAction:
     """Agent's mission card submission."""
 
     success: bool  # True for success, False for fail
-    reasoning: str = ""
+    private_reasoning: str = ""
+    public_reasoning: str = ""
 
 
 @dataclass(frozen=True, slots=True)
 class AssassinationGuess:
-    """Agent's guess at Merlin's identity."""
+    """Agent's assassination target guess."""
 
     target_id: PlayerId
-    reasoning: str = ""
+    private_reasoning: str = ""
+    public_reasoning: str = ""
 
 
 class AgentDecisionMaker(Protocol):
@@ -147,6 +155,7 @@ def build_observation(
     game_state: GameState,
     player_id: PlayerId,
     knowledge: KnowledgePacket,
+    public_statements: Tuple[Tuple[PlayerId, str, str], ...] = (),
 ) -> AgentObservation:
     """Construct an agent observation from game state.
 
@@ -154,6 +163,7 @@ def build_observation(
         game_state: Current GameState instance.
         player_id: ID of the agent player.
         knowledge: Role-based knowledge from setup.
+        public_statements: Tuple of (player_id, decision_type, public_reasoning) from other players.
 
     Returns:
         AgentObservation with filtered game context.
@@ -198,6 +208,7 @@ def build_observation(
         mission_history=tuple(record.to_public_summary() for record in game_state.mission_history),
         required_team_size=required_team_size,
         required_fail_count=required_fail_count,
+        public_statements=public_statements,
     )
 
 
