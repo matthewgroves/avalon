@@ -218,7 +218,9 @@ Config/Setup → GameState → AgentManager → LLMClient → Gemini API
   - Mixed human/agent game support
   - Full integration tests
 
-🔄 **Phase 12: Communication & Discussion** - Optional
+🔄 **Phase 12: Communication & Discussion**
+  - Document transcript schemas and agent integration points covering visibility-filtered event feeds.
+  - Thread event visibility metadata through interaction outputs to surface personalised historical views.
   - Multi-turn agent conversations
   - Strategic discussion phases
   
@@ -263,6 +265,3 @@ class CustomLLMClient:
 ## License
 
 MIT License - See LICENSE file for details
-
-- Document transcript schemas and agent integration points covering visibility-filtered event feeds.
-- Thread event visibility metadata through interaction outputs to surface personalised historical views.
