@@ -93,6 +93,108 @@ KEY STRATEGIES:
 - Minions: Blend in, create doubt, subtly guide missions toward failure
 - Special roles: Use your knowledge wisely without exposing yourself"""
 
+    def _build_role_guidance(self, observation: AgentObservation) -> str:
+        """Build role-specific strategic guidance."""
+        from .enums import RoleType
+
+        role = observation.role
+        guidance_lines = ["\nYOUR ROLE-SPECIFIC GUIDANCE:"]
+
+        if role == RoleType.MERLIN:
+            guidance_lines.extend(
+                [
+                    "- You know all evil players (except Mordred if present), "
+                    "giving you immense strategic advantage",
+                    "- PRIMARY GOAL: Guide resistance to victory WITHOUT revealing you're Merlin",
+                    "- Balance: Help your team while maintaining plausible deniability",
+                    "- Be subtle: Suggest teams or votes that 'happen' to avoid evil players",
+                    "- Cover: Sometimes approve teams with evil to avoid suspicion",
+                    "- WARNING: If evil wins 3 missions, Assassin will analyze your behavior",
+                    "- Think: How would a regular Resistance player act with no knowledge?",
+                ]
+            )
+        elif role == RoleType.PERCIVAL:
+            guidance_lines.extend(
+                [
+                    "- You see Merlin (and Morgana if present), but can't distinguish them",
+                    "- PRIMARY GOAL: Identify the real Merlin and protect their identity",
+                    "- Watch: Which of your known players makes subtle, wise decisions?",
+                    "- Support: Back Merlin's guidance without drawing attention to them",
+                    "- Protect: Help Merlin deflect suspicion onto yourself or others",
+                    "- Misdirection: If needed, act like you might be Merlin to confuse Assassin",
+                ]
+            )
+        elif role == RoleType.LOYAL_SERVANT:
+            guidance_lines.extend(
+                [
+                    "- You have no special knowledge, only observation and deduction",
+                    "- PRIMARY GOAL: Identify evil players through behavioral analysis",
+                    "- Watch: Who consistently ends up on failed missions?",
+                    "- Patterns: Who votes in suspicious ways? Who deflects accusations?",
+                    "- Trust: Look for players who demonstrate good judgment",
+                    "- Be vocal: Share observations to help coordinate resistance",
+                ]
+            )
+        elif role == RoleType.MINION_OF_MORDRED:
+            guidance_lines.extend(
+                [
+                    "- You know your fellow evil players, allowing coordination",
+                    "- PRIMARY GOAL: Fail 3 missions while maintaining cover",
+                    "- Blend in: Act like resistance, express 'concern' about evil players",
+                    "- Coordinate: Ensure missions have enough evil players to fail",
+                    "- Strategic fails: Don't always fail immediately - build trust first",
+                    "- Force Merlin: Make Merlin reveal knowledge by creating no-win situations",
+                    "- Voting: Sometimes vote against evil teams to appear good",
+                ]
+            )
+        elif role == RoleType.ASSASSIN:
+            guidance_lines.extend(
+                [
+                    "- You're a Minion with a special power: killing Merlin if evil loses",
+                    "- PRIMARY GOAL: Fail missions, but if evil loses, identify Merlin",
+                    "- During game: Note who makes suspiciously good decisions",
+                    "- Force reveals: Create situations where Merlin must guide obviously",
+                    "- Mental notes: Track who opposes teams with evil players",
+                    "- Final choice: Merlin often tries to be subtle, not the loudest leader",
+                    "- Remember: Your assassination guess can steal victory from defeat",
+                ]
+            )
+        elif role == RoleType.MORDRED:
+            guidance_lines.extend(
+                [
+                    "- You're evil AND invisible to Merlin - extremely powerful",
+                    "- PRIMARY GOAL: Use your invisibility to infiltrate trusted teams",
+                    "- Advantage: Merlin can't warn against you without revealing themselves",
+                    "- Strategy: Build trust by appearing cautious about 'other' evil players",
+                    "- Pressure: If on missions, you can fail while others suspect known evil",
+                    "- Watch: Identify Merlin by who trusts you without apparent reason",
+                ]
+            )
+        elif role == RoleType.MORGANA:
+            guidance_lines.extend(
+                [
+                    "- You appear as Merlin to Percival, creating confusion",
+                    "- PRIMARY GOAL: Impersonate Merlin to mislead Percival",
+                    "- Deception: Make 'wise' suggestions that subtly help evil",
+                    "- Mirror: Act like Merlin would - subtle, helpful, but guide wrong",
+                    "- Percival bait: Let Percival 'figure out' you're important",
+                    "- Misdirection: If evil loses, you might draw the assassination",
+                ]
+            )
+        elif role == RoleType.OBERON:
+            guidance_lines.extend(
+                [
+                    "- You're evil but don't know other evil players (and they don't know you)",
+                    "- PRIMARY GOAL: Fail missions while appearing to hunt for evil",
+                    "- Isolation: Use your lack of knowledge as cover - you seem resistance",
+                    "- Aggressive: Accuse everyone, including evil, to maintain cover",
+                    "- Opportunistic: Fail missions when you're on them",
+                    "- Confusion: Your random accusations might actually help evil",
+                ]
+            )
+
+        return "\n".join(guidance_lines)
+
     def _build_observation_context(self, observation: AgentObservation) -> str:
         """Build a text description of the game state for the agent."""
         lines = [
@@ -170,8 +272,10 @@ KEY STRATEGIES:
     def propose_team(self, observation: AgentObservation) -> TeamProposal:
         """Generate a team proposal using Gemini."""
         game_context = self._build_game_context()
+        role_guidance = self._build_role_guidance(observation)
         observation_context = self._build_observation_context(observation)
         prompt = f"""{game_context}
+{role_guidance}
 
 {observation_context}
 
@@ -210,8 +314,10 @@ Your response:"""
     def vote_on_team(self, observation: AgentObservation) -> VoteDecision:
         """Generate a vote decision using Gemini."""
         game_context = self._build_game_context()
+        role_guidance = self._build_role_guidance(observation)
         observation_context = self._build_observation_context(observation)
         prompt = f"""{game_context}
+{role_guidance}
 
 {observation_context}
 
@@ -245,8 +351,10 @@ Your response:"""
     def execute_mission(self, observation: AgentObservation) -> MissionAction:
         """Generate a mission action using Gemini."""
         game_context = self._build_game_context()
+        role_guidance = self._build_role_guidance(observation)
         observation_context = self._build_observation_context(observation)
         prompt = f"""{game_context}
+{role_guidance}
 
 {observation_context}
 
@@ -290,8 +398,10 @@ Your response:"""
     def guess_merlin(self, observation: AgentObservation) -> AssassinationGuess:
         """Generate an assassination guess using Gemini."""
         game_context = self._build_game_context()
+        role_guidance = self._build_role_guidance(observation)
         observation_context = self._build_observation_context(observation)
         prompt = f"""{game_context}
+{role_guidance}
 
 {observation_context}
 
