@@ -74,6 +74,25 @@ class GeminiClient:
         )
         return response.text
 
+    def _build_game_context(self) -> str:
+        """Build general game context and strategic guidance."""
+        return """You are playing The Resistance: Avalon, a social deduction game of \
+hidden roles and imperfect information.
+
+GAME OVERVIEW:
+- Two teams compete: Resistance (good) vs Minions of Mordred (evil)
+- Resistance wins by passing 3 missions; Minions win by failing 3 missions
+- Special roles have partial knowledge (e.g., Merlin knows evil players)
+- The game thrives on deception, deduction, and strategic discussion
+
+KEY STRATEGIES:
+- Disguise your role: Don't reveal your alignment through obvious patterns
+- Use imperfect information: Make decisions that could be justified by multiple roles
+- Consider table dynamics: Who is pushing certain narratives? Why?
+- Resistance: Build trust carefully, observe who sabotages missions
+- Minions: Blend in, create doubt, subtly guide missions toward failure
+- Special roles: Use your knowledge wisely without exposing yourself"""
+
     def _build_observation_context(self, observation: AgentObservation) -> str:
         """Build a text description of the game state for the agent."""
         lines = [
@@ -150,11 +169,21 @@ class GeminiClient:
 
     def propose_team(self, observation: AgentObservation) -> TeamProposal:
         """Generate a team proposal using Gemini."""
-        context = self._build_observation_context(observation)
-        prompt = f"""{context}
+        game_context = self._build_game_context()
+        observation_context = self._build_observation_context(observation)
+        prompt = f"""{game_context}
 
-You are the mission leader. You must propose a team of exactly
+{observation_context}
+
+DECISION: TEAM PROPOSAL
+You are the mission leader. You must propose a team of exactly \
 {observation.required_team_size} players.
+
+Consider:
+- Your alignment: Do you want this mission to succeed or fail?
+- Your knowledge: What do you know about other players?
+- Deception: How can you justify this team regardless of your true role?
+- Table dynamics: Who has been trusted/suspected so far?
 
 Respond with a JSON object in this format:
 {{
@@ -180,10 +209,22 @@ Your response:"""
 
     def vote_on_team(self, observation: AgentObservation) -> VoteDecision:
         """Generate a vote decision using Gemini."""
-        context = self._build_observation_context(observation)
-        prompt = f"""{context}
+        game_context = self._build_game_context()
+        observation_context = self._build_observation_context(observation)
+        prompt = f"""{game_context}
 
+{observation_context}
+
+DECISION: TEAM VOTE
 You must vote to APPROVE or REJECT the proposed team.
+
+Consider:
+- Your alignment: Does this team help or hurt your side?
+- Your knowledge: Do you recognize any evil/good players on the team?
+- Strategic voting: Sometimes voting against your interest can provide cover
+- Rejection consequences: {5 - observation.consecutive_rejections} more rejections \
+= automatic mission failure
+- Patterns: Avoid voting in ways that obviously reveal your role
 
 Respond with a JSON object in this format:
 {{
@@ -203,11 +244,24 @@ Your response:"""
 
     def execute_mission(self, observation: AgentObservation) -> MissionAction:
         """Generate a mission action using Gemini."""
-        context = self._build_observation_context(observation)
-        prompt = f"""{context}
+        game_context = self._build_game_context()
+        observation_context = self._build_observation_context(observation)
+        prompt = f"""{game_context}
 
+{observation_context}
+
+DECISION: MISSION EXECUTION
 You are on the mission team. You must play a SUCCESS or FAIL card.
-Remember: Resistance players can only play SUCCESS. Minions can play SUCCESS or FAIL.
+
+CRITICAL RULES:
+- Resistance players MUST play SUCCESS (you have no choice)
+- Minions CAN play SUCCESS or FAIL (your choice is strategic)
+
+Consider (if you're a Minion):
+- Suspicion management: Failing too early might expose you
+- Mission criticality: Is this a crucial mission to fail?
+- Team composition: Are there other minions who might fail?
+- Cover strategy: Sometimes playing success builds trust for later betrayal
 
 Respond with a JSON object in this format:
 {{
@@ -235,11 +289,27 @@ Your response:"""
 
     def guess_merlin(self, observation: AgentObservation) -> AssassinationGuess:
         """Generate an assassination guess using Gemini."""
-        context = self._build_observation_context(observation)
-        prompt = f"""{context}
+        game_context = self._build_game_context()
+        observation_context = self._build_observation_context(observation)
+        prompt = f"""{game_context}
 
-As the Assassin, you must identify Merlin. Review the mission history and player behavior.
-Merlin is a Resistance player who had knowledge of the Minions.
+{observation_context}
+
+DECISION: ASSASSINATE MERLIN
+As the Assassin, you must identify and kill Merlin to steal victory from the Resistance.
+
+MERLIN'S CHARACTERISTICS:
+- Merlin is a Resistance player who knew the Minions at game start
+- Merlin tries to guide missions toward success WITHOUT revealing their knowledge
+- Look for players who subtly steered away from evil players
+- Look for players who voted wisely but didn't explain how they "knew"
+
+ANALYSIS APPROACH:
+- Review mission history: Who was on successful teams?
+- Review vote patterns: Who consistently opposed teams with minions?
+- Consider knowledge: Who acted like they had information?
+- Avoid obvious targets: Sometimes the loudest "leader" isn't Merlin
+- Look for subtle guidance: Merlin must hide while helping
 
 Respond with a JSON object in this format:
 {{
