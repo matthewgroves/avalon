@@ -1,0 +1,39 @@
+# Example configuration for a fully automated agent game
+# All 5 players are LLM agents using Gemini 2.0 Flash
+#
+# To run this game:
+#   1. Set your API key: export GEMINI_API_KEY='your-key'
+#   2. Run: poetry run python run_agent_game.py config-all-agents.yaml
+#
+# Watch as the agents:
+#   - Propose teams based on their knowledge and deductions
+#   - Vote strategically on proposals
+#   - Execute missions according to their alignment
+#   - Attempt to identify and assassinate Merlin
+
+game_config:
+  num_players: 5
+
+players:
+  - name: "Agentlot"
+    type: agent
+  - name: "Botlin"
+    type: agent
+  - name: "GPTwain"
+    type: agent
+  - name: "LlamaLot"
+    type: agent
+  - name: "ClaudeVere"
+    type: agent
+
+optional_roles:
+  - percival
+  - morgana
+
+# Optional: Set a random seed for reproducible role assignments
+# random_seed: 12345
+
+briefing_options:
+  show_role: true
+  show_alignment: true
+  show_knowledge: true

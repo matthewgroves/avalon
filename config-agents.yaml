@@ -1,12 +1,22 @@
 # Avalon Game Configuration with Agent Players
-# Example configuration showing mixed human and LLM agent players
+# This example shows how to configure a game with mixed human and LLM agent players
+#
+# SETUP:
+# 1. Get a Gemini API key from https://aistudio.google.com/apikey
+# 2. Set environment variable: export GEMINI_API_KEY="your-key-here"
+# 3. Run: poetry run python -m avalon.interaction --config config-agents.yaml
 
-# Players can be specified in two formats:
-# 1. Simple format (string): defaults to human player with auto-generated ID (player_1, player_2, etc.)
-# 2. Structured format (dict): specify name and type (id is auto-generated)
+# Player Configuration
+# Two formats supported:
+# 1. Simple string format: "Alice" - defaults to human player
+# 2. Structured dict format: {name: "Alice", type: "agent"} - specify player type
+#
+# Player types:
+#   - human: Human player (prompted for decisions via CLI)
+#   - agent:  LLM agent player (uses Gemini API for decisions)
 
 players:
-  # Human players (simple format or structured)
+  # Human players (simple format)
   - Alice
   - Bob
   
@@ -18,19 +28,28 @@ players:
   - name: AgentEve
     type: agent
 
-# Optional special roles beyond Merlin and Assassin
+# Optional Special Roles
+# Available: percival, morgana, mordred, oberon
+# Merlin and Assassin are always included
+# Remaining slots filled with generic loyal_servant and minion_of_mordred
 optional_roles:
   - percival
   - morgana
 
-# Briefing delivery configuration
+# Briefing Delivery Configuration
 briefing:
+  # Mode: 'sequential' (one at a time) or 'batch' (all at once)
   mode: sequential
-  pause_before_each: false
-  pause_after_each: false
+  
+  # Pause settings for sequential mode
+  pause_before_each: false  # Wait before showing each briefing
+  pause_after_each: false   # Wait after showing each briefing
 
-# Optional: Fixed random seed for deterministic games
+# Optional: Fixed random seed for deterministic role assignment (useful for testing)
 random_seed: 42
 
-# Note: Agent players require GEMINI_API_KEY environment variable
-# Export your API key: export GEMINI_API_KEY="your-api-key-here"
+# Agent Behavior Notes:
+# - Agents receive filtered game state based on their role knowledge
+# - Agents display reasoning for transparency
+# - Failed agent decisions fall back to human input
+# - All agent decisions are logged in the transcript
