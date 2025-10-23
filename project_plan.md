@@ -192,24 +192,24 @@
 	- Validate observation state construction for different game phases.
 	- Test action parsing with valid/invalid LLM responses.
 
-### Phase 11: Agent Decision Integration
-- [ ] **Team Proposal Agent Logic**
+### Phase 11: Agent Decision Integration ✅
+- [x] **Team Proposal Agent Logic** ✅
 	- Construct prompts with current game state, visible players, mission requirements.
 	- Parse team selection responses into player ID lists.
 	- Handle invalid responses (wrong count, unknown players, malformed output).
-- [ ] **Voting Agent Logic**
+- [x] **Voting Agent Logic** ✅
 	- Present proposed team and game context to agents.
 	- Parse approve/reject decisions from LLM responses.
 	- Support reasoning/explanation capture for transparency.
-- [ ] **Mission Execution Agent Logic**
+- [x] **Mission Execution Agent Logic** ✅
 	- Provide mission context to agents on selected teams.
 	- Parse success/fail decisions respecting alignment constraints.
 	- Validate resistance agents cannot submit fail cards.
-- [ ] **Assassination Agent Logic**
+- [x] **Assassination Agent Logic** ✅
 	- Present final game state to assassin agents.
 	- Parse Merlin identification guess.
 	- Handle invalid target selections.
-- [ ] **Integration Tests**
+- [x] **Integration Tests** ✅
 	- Run full games with all-agent players using mocked LLM responses.
 	- Validate phase transitions work correctly with agent decisions.
 	- Test mixed human/agent games.

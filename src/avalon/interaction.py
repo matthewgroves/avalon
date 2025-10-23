@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from getpass import getpass
-from typing import Protocol, Sequence, Tuple
+from typing import Any, Protocol, Sequence, Tuple
 
 from .config import GameConfig
 from .enums import Alignment, PlayerType, RoleType
@@ -139,8 +139,22 @@ def run_interactive_game(
     event_log: EventLog | None = None,
     briefing_options: BriefingOptions | None = None,
     registrations: Sequence[PlayerRegistration] | None = None,
+    agent_manager: Any | None = None,  # AgentManager, avoiding circular import
 ) -> InteractionResult:
-    """Run an Avalon game loop using the provided interaction backend."""
+    """Run an Avalon game loop using the provided interaction backend.
+
+    Args:
+        config: Game configuration.
+        io: Interaction backend (defaults to CLI).
+        seed: Random seed for reproducible games.
+        event_log: Event log for tracking game events.
+        briefing_options: Briefing delivery configuration.
+        registrations: Pre-configured player registrations.
+        agent_manager: Optional agent manager for LLM agent players.
+
+    Returns:
+        InteractionResult with final state and transcript.
+    """
 
     backend = io or CLIInteraction()
     log: list[InteractionLogEntry] = []
@@ -158,13 +172,13 @@ def run_interactive_game(
     while state.phase is not GamePhase.GAME_OVER:
         _announce_round(state, backend, log)
         if state.phase is GamePhase.TEAM_PROPOSAL:
-            _handle_team_proposal(state, backend, log)
+            _handle_team_proposal(state, backend, log, agent_manager)
         elif state.phase is GamePhase.TEAM_VOTE:
-            _handle_team_vote(state, backend, log)
+            _handle_team_vote(state, backend, log, agent_manager)
         elif state.phase is GamePhase.MISSION:
-            _handle_mission(state, backend, log)
+            _handle_mission(state, backend, log, agent_manager)
         elif state.phase is GamePhase.ASSASSINATION_PENDING:
-            _handle_assassination(state, backend, log)
+            _handle_assassination(state, backend, log, agent_manager)
         else:  # pragma: no cover - defensive guard
             raise RuntimeError(f"Unhandled phase: {state.phase}")
 
@@ -307,11 +321,29 @@ def _announce_round(
 
 
 def _handle_team_proposal(
-    state: GameState, backend: InteractionIO, log: list[InteractionLogEntry]
+    state: GameState,
+    backend: InteractionIO,
+    log: list[InteractionLogEntry],
+    agent_manager: Any | None = None,
 ) -> None:
     required_size = state.config.mission_config.team_sizes[state.round_number - 1]
     leader = state.current_leader
     _write(backend, log, f"Leader: {leader.display_name} ({leader.player_id})")
+
+    # Check if leader is an agent
+    if agent_manager and agent_manager.is_agent(leader.player_id, state):
+        _write(backend, log, f"  [Agent {leader.display_name} is selecting team...]")
+        proposal = agent_manager.propose_team(leader.player_id, state)
+        team = proposal.team
+        if proposal.reasoning:
+            _write(backend, log, f"  Reasoning: {proposal.reasoning}")
+        try:
+            state.propose_team(leader.player_id, team)
+            _write(backend, log, f"Proposed team: {', '.join(team)}")
+            return
+        except InvalidActionError as exc:
+            _write(backend, log, f"Agent error: {exc}. Falling back to human input.")
+            # Fall through to human input
 
     while True:
         entry = _read(
@@ -332,10 +364,24 @@ def _handle_team_proposal(
 
 
 def _handle_team_vote(
-    state: GameState, backend: InteractionIO, log: list[InteractionLogEntry]
+    state: GameState,
+    backend: InteractionIO,
+    log: list[InteractionLogEntry],
+    agent_manager: Any | None = None,
 ) -> None:
     votes: dict[str, bool] = {}
     for player in state.players:
+        # Check if player is an agent
+        if agent_manager and agent_manager.is_agent(player.player_id, state):
+            _write(backend, log, f"  [Agent {player.display_name} is voting...]")
+            decision = agent_manager.vote_on_team(player.player_id, state)
+            votes[player.player_id] = decision.approve
+            vote_str = "APPROVE" if decision.approve else "REJECT"
+            _write(backend, log, f"  {player.display_name}: {vote_str}")
+            if decision.reasoning:
+                _write(backend, log, f"    Reasoning: {decision.reasoning}")
+            continue
+
         while True:
             response = (
                 _read_hidden(
@@ -374,11 +420,24 @@ def _handle_mission(
     state: GameState,
     backend: InteractionIO,
     log: list[InteractionLogEntry],
+    agent_manager: Any | None = None,
 ) -> None:
     decisions: dict[str, MissionDecision] = {}
     assert state.current_team is not None  # defensive
     for player_id in state.current_team:
         player = state.players_by_id[player_id]
+
+        # Check if player is an agent
+        if agent_manager and agent_manager.is_agent(player_id, state):
+            _write(backend, log, f"  [Agent {player.display_name} is submitting card...]")
+            action = agent_manager.execute_mission(player_id, state)
+            decisions[player_id] = (
+                MissionDecision.SUCCESS if action.success else MissionDecision.FAIL
+            )
+            if action.reasoning:
+                _write(backend, log, f"    Reasoning: {action.reasoning}")
+            continue
+
         while True:
             response = (
                 _read_hidden(
@@ -414,7 +473,10 @@ def _handle_mission(
 
 
 def _handle_assassination(
-    state: GameState, backend: InteractionIO, log: list[InteractionLogEntry]
+    state: GameState,
+    backend: InteractionIO,
+    log: list[InteractionLogEntry],
+    agent_manager: Any | None = None,
 ) -> None:
     assassin_ids = state.assassin_ids
     if not assassin_ids:
@@ -430,6 +492,23 @@ def _handle_assassination(
         log,
         f"Assassination phase: {assassin.display_name} must identify Merlin by player id.",
     )
+
+    # Check if assassin is an agent
+    if agent_manager and agent_manager.is_agent(assassin_id, state):
+        _write(backend, log, f"  [Agent {assassin.display_name} is guessing Merlin...]")
+        guess = agent_manager.guess_merlin(assassin_id, state)
+        target_id = guess.target_id
+        if guess.reasoning:
+            _write(backend, log, f"  Reasoning: {guess.reasoning}")
+        try:
+            record = state.perform_assassination(assassin_id, target_id)
+            result = "succeeds" if record.success else "fails"
+            _write(backend, log, f"Assassination {result}!")
+            return
+        except InvalidActionError as exc:
+            _write(backend, log, f"Agent error: {exc}. Falling back to human input.")
+            # Fall through to human input
+
     while True:
         target_id = _read_hidden(
             backend,
