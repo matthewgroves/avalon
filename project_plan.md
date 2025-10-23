@@ -146,6 +146,8 @@
 	- Add deterministic scripted backend to exercise the CLI loop under test and ensure successful resistance outcomes.
 - [x] **Dialogue Logging Hooks**
 	- Record every prompt, hidden prompt, and system output into a structured transcript returned with the game state for downstream agent memory work.
+- [x] **Private Role Briefings**
+	- Deliver per-player role/knowledge briefings post-setup using transcript visibility tags to maintain secrecy.
 
 ### Phase 7: Persistence & Memory Hooks
 - [x] Design event schema and implement append-only logger.
@@ -168,6 +170,6 @@
 - Stretch goals: web/socket-based UI, pluggable LLM agent management service, analytics dashboard for mission history.
 
 ## 6. Next Steps
-1. Design structured persistence/event logging for Phase 7 (determine storage format, append-only semantics).
-2. Prototype save/load scaffolding around `GameState` snapshots.
-3. Document transcript schema expectations for prospective agent integrations.
+1. Add CLI prompts so moderators can choose briefing delivery options at runtime.
+2. Persist briefing preference defaults alongside `GameConfig` for scripted runs and save files.
+3. Collect playtest feedback on briefing copy and adjust tone/examples accordingly.

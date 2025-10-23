@@ -20,6 +20,8 @@ from .game_state import (
     VoteRecord,
 )
 from .interaction import (
+    BriefingDeliveryMode,
+    BriefingOptions,
     CLIInteraction,
     InteractionEventType,
     InteractionIO,
@@ -51,6 +53,8 @@ __all__ = [
     "GameEvent",
     "GameEventType",
     "EventVisibility",
+    "BriefingDeliveryMode",
+    "BriefingOptions",
     "GamePhase",
     "GameState",
     "GameStateSnapshot",

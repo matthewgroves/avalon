@@ -7,6 +7,8 @@ from avalon.config import GameConfig
 from avalon.enums import Alignment
 from avalon.game_state import GamePhase
 from avalon.interaction import (
+    BriefingDeliveryMode,
+    BriefingOptions,
     InteractionEventType,
     InteractionIO,
     InteractionResult,
@@ -41,11 +43,16 @@ class ScriptedIO(InteractionIO):
         return self.responses.pop(0)
 
 
-def _play_resistance_victory(seed: int = 19) -> tuple[InteractionResult, ScriptedIO, str]:
+def _play_resistance_victory(
+    seed: int = 19,
+    *,
+    briefing_options: BriefingOptions | None = None,
+) -> tuple[InteractionResult, ScriptedIO, str]:
     config = GameConfig.default(5)
     names = ["Alice", "Bob", "Carol", "Dave", "Eve"]
     registrations = [PlayerRegistration(name) for name in names]
     setup = perform_setup(config, registrations, seed=seed)
+    options = briefing_options or BriefingOptions()
 
     resistance_ids = [
         player.player_id for player in setup.players if player.alignment is Alignment.RESISTANCE
@@ -66,8 +73,15 @@ def _play_resistance_victory(seed: int = 19) -> tuple[InteractionResult, Scripte
     team_three = " ".join(resistance_ids[:2])
     wrong_target = next(pid for pid in resistance_ids if pid != merlin_id)
 
+    acknowledgement_responses: list[str] = []
+    if options.mode is BriefingDeliveryMode.SEQUENTIAL and options.pause_before_each:
+        acknowledgement_responses.extend("" for _ in setup.players)
+    if options.pause_after_each:
+        acknowledgement_responses.extend("" for _ in setup.players)
+
     responses = [
         *names,
+        *acknowledgement_responses,
         team_one,
         *["y"] * config.player_count,
         *["success"] * 2,
@@ -81,7 +95,12 @@ def _play_resistance_victory(seed: int = 19) -> tuple[InteractionResult, Scripte
     ]
 
     scripted = ScriptedIO(responses)
-    result = run_interactive_game(config, io=scripted, seed=seed)
+    result = run_interactive_game(
+        config,
+        io=scripted,
+        seed=seed,
+        briefing_options=options,
+    )
     return result, scripted, assassin_id
 
 
@@ -132,3 +151,28 @@ def test_transcript_filters_surface_only_visible_entries() -> None:
     res_alignment_entries = result.transcript_for_alignment(Alignment.RESISTANCE)
     minion_alignment_entries = result.transcript_for_alignment(Alignment.MINION)
     assert len(minion_alignment_entries) >= len(res_alignment_entries)
+
+
+def test_briefings_can_require_acknowledgements() -> None:
+    options = BriefingOptions(pause_before_each=True, pause_after_each=True)
+    result, scripted, _ = _play_resistance_victory(seed=22, briefing_options=options)
+
+    assert not scripted.responses
+
+    hidden_messages = [
+        entry.message
+        for entry in result.transcript
+        if entry.event is InteractionEventType.HIDDEN_PROMPT
+    ]
+    assert any("ready to view your briefing" in message for message in hidden_messages)
+    assert any("finished reading your briefing" in message for message in hidden_messages)
+
+
+def test_batch_briefings_emit_batch_instruction() -> None:
+    options = BriefingOptions(mode=BriefingDeliveryMode.BATCH)
+    result, _, _ = _play_resistance_victory(seed=25, briefing_options=options)
+
+    outputs = [
+        entry.message for entry in result.transcript if entry.event is InteractionEventType.OUTPUT
+    ]
+    assert any("briefings in batch" in message for message in outputs)

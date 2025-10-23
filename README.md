@@ -41,6 +41,7 @@ Avalon is a Python implementation of the Resistance: Avalon board game. The proj
 - Run `poetry run python -m avalon.interaction` to play a full game via the console.
 - The CLI prompts for player count, collects player names, and guides proposals, votes, mission cards, and assassination guesses.
 - Sensitive decisions (votes and mission cards) are collected using hidden prompts to preserve secrecy at the table.
+- Private setup briefings can be tailored via `BriefingOptions` (sequential vs batch, optional readiness/acknowledgement pauses).
 - `run_interactive_game` returns an `InteractionResult` bundling the final `GameState` and a transcript of prompts/responses (`InteractionLogEntry`) categorized by `InteractionEventType` (prompt, hidden prompt, output).
 
 ## Next Steps

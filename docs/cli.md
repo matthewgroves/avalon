@@ -23,6 +23,34 @@ You will be prompted for:
 
 Sensitive prompts (votes, mission cards, assassin guess) use hidden input via `getpass` so responses are not echoed to the terminal.
 
+### Private Briefing Delivery
+
+After setup the CLI delivers each player's role and knowledge packet using transcript visibility tags. The default behaviour is sequential: the moderator invites each player to the screen, the briefing prints privately, and the transcript records an audience tag of `player:{player_id}`.
+
+`run_interactive_game` accepts a `BriefingOptions` object to tailor the delivery:
+
+- `mode` – `BriefingDeliveryMode.SEQUENTIAL` (default) or `BriefingDeliveryMode.BATCH`. Batch delivery prints every briefing at once for moderators to relay manually.
+- `pause_before_each` – When `True`, the CLI issues a hidden prompt asking the addressed player to confirm they are ready before revealing their briefing.
+- `pause_after_each` – When `True`, players acknowledge once they finish reading so the moderator can clear the screen before the next briefing.
+
+Example:
+
+```python
+from avalon.config import GameConfig
+from avalon.interaction import BriefingOptions, BriefingDeliveryMode, run_interactive_game
+
+config = GameConfig.default(7)
+options = BriefingOptions(
+    mode=BriefingDeliveryMode.SEQUENTIAL,
+    pause_before_each=True,
+    pause_after_each=True,
+)
+
+run_interactive_game(config, briefing_options=options)
+```
+
+The transcript captures all additional prompts, making it easy to audit who received which messages.
+
 ## Transcript Logging
 
 `run_interactive_game` returns an `InteractionResult` containing:

@@ -55,6 +55,22 @@ class InteractionEventType(str, Enum):
     OUTPUT = "output"
 
 
+class BriefingDeliveryMode(str, Enum):
+    """Supported delivery patterns for setup briefings."""
+
+    SEQUENTIAL = "sequential"
+    BATCH = "batch"
+
+
+@dataclass(frozen=True, slots=True)
+class BriefingOptions:
+    """Tunable options controlling how setup briefings are surfaced."""
+
+    mode: BriefingDeliveryMode = BriefingDeliveryMode.SEQUENTIAL
+    pause_before_each: bool = False
+    pause_after_each: bool = False
+
+
 @dataclass(frozen=True, slots=True)
 class InteractionLogEntry:
     """Single prompt/response or output emitted during play."""
@@ -121,11 +137,13 @@ def run_interactive_game(
     io: InteractionIO | None = None,
     seed: int | None = None,
     event_log: EventLog | None = None,
+    briefing_options: BriefingOptions | None = None,
 ) -> InteractionResult:
     """Run an Avalon game loop using the provided interaction backend."""
 
     backend = io or CLIInteraction()
     log: list[InteractionLogEntry] = []
+    delivery_options = briefing_options or BriefingOptions()
 
     _write(backend, log, "\n=== Avalon Setup ===")
     registrations = _collect_registrations(config, backend, log)
@@ -133,7 +151,7 @@ def run_interactive_game(
     state = GameState.from_setup(setup)
     state.event_log = event_log or EventLog()
     _announce_roster(state.players, backend, log)
-    _deliver_private_briefings(setup, backend, log)
+    _deliver_private_briefings(setup, backend, log, delivery_options)
 
     while state.phase is not GamePhase.GAME_OVER:
         _announce_round(state, backend, log)
@@ -375,7 +393,23 @@ def _deliver_private_briefings(
     setup: SetupResult,
     backend: InteractionIO,
     log: list[InteractionLogEntry],
+    options: BriefingOptions,
 ) -> None:
+    if options.mode is BriefingDeliveryMode.SEQUENTIAL:
+        _write(
+            backend,
+            log,
+            "\nDistributing private briefings one player at a time. "
+            "Only the addressed player should view the screen.",
+        )
+    else:
+        _write(
+            backend,
+            log,
+            "\nDistributing private briefings in batch. "
+            "Moderators should share each briefing with the appropriate player only.",
+        )
+
     players_by_id = {player.player_id: player for player in setup.players}
     for briefing in setup.briefings:
         player = briefing.player
@@ -403,6 +437,21 @@ def _deliver_private_briefings(
         if not knowledge.has_information:
             lines.append("No additional intel is provided beyond your role.")
 
+        if options.mode is BriefingDeliveryMode.SEQUENTIAL:
+            _write(
+                backend,
+                log,
+                f"\nPlease invite {player.display_name} to view their briefing now.",
+            )
+            if options.pause_before_each:
+                _read_hidden(
+                    backend,
+                    log,
+                    f"{player.display_name}, press enter when you're ready to view "
+                    "your briefing.\n",
+                    audience=[player_audience_tag(player.player_id)],
+                )
+
         _write(
             backend,
             log,
@@ -410,6 +459,21 @@ def _deliver_private_briefings(
             visibility=EventVisibility.PRIVATE,
             audience=[player_audience_tag(player.player_id)],
         )
+
+        if options.pause_after_each:
+            _read_hidden(
+                backend,
+                log,
+                f"{player.display_name}, press enter once you've finished reading your briefing.\n",
+                audience=[player_audience_tag(player.player_id)],
+            )
+
+        if options.mode is BriefingDeliveryMode.SEQUENTIAL:
+            _write(
+                backend,
+                log,
+                f"Briefing complete for {player.display_name}.",
+            )
 
 
 def _read(
@@ -507,6 +571,8 @@ if __name__ == "__main__":  # pragma: no cover - CLI entry point
 
 
 __all__ = [
+    "BriefingDeliveryMode",
+    "BriefingOptions",
     "CLIInteraction",
     "InteractionEventType",
     "InteractionIO",
