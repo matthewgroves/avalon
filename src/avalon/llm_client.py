@@ -49,7 +49,7 @@ class GeminiClient:
     Requires GEMINI_API_KEY environment variable.
     """
 
-    model_name: str = "gemma-2-9b-it"
+    model_name: str = "gemma-3-12b-it"
     temperature: float = 0.7
     api_key: str | None = None
     max_retries: int = 3
