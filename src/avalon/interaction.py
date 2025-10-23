@@ -13,7 +13,8 @@ from .events import EventLog, EventVisibility, alignment_audience_tag, player_au
 from .exceptions import InvalidActionError
 from .game_state import GamePhase, GameState, MissionDecision
 from .players import Player
-from .setup import PlayerRegistration, perform_setup
+from .roles import ROLE_DEFINITIONS
+from .setup import PlayerRegistration, SetupResult, perform_setup
 
 
 class InteractionIO(Protocol):
@@ -132,6 +133,7 @@ def run_interactive_game(
     state = GameState.from_setup(setup)
     state.event_log = event_log or EventLog()
     _announce_roster(state.players, backend, log)
+    _deliver_private_briefings(setup, backend, log)
 
     while state.phase is not GamePhase.GAME_OVER:
         _announce_round(state, backend, log)
@@ -369,6 +371,47 @@ def _parse_team(entry: str) -> tuple[str, ...] | None:
     return tuple(tokens) if tokens else None
 
 
+def _deliver_private_briefings(
+    setup: SetupResult,
+    backend: InteractionIO,
+    log: list[InteractionLogEntry],
+) -> None:
+    players_by_id = {player.player_id: player for player in setup.players}
+    for briefing in setup.briefings:
+        player = briefing.player
+        definition = ROLE_DEFINITIONS[player.role]
+        lines = [
+            f"Private briefing for {player.display_name} ({player.player_id})",
+            f"Role: {player.role.value.replace('_', ' ').title()}",
+            f"Alignment: {definition.alignment.value.title()}",
+        ]
+        knowledge = briefing.knowledge
+        if knowledge.visible_player_ids:
+            visible_names = [
+                f"{players_by_id[player_id].display_name} ({player_id})"
+                for player_id in knowledge.visible_player_ids
+            ]
+            lines.append("You learn the identities of: " + ", ".join(visible_names))
+        if knowledge.ambiguous_player_id_groups:
+            group_descriptions = []
+            for group in knowledge.ambiguous_player_id_groups:
+                group_names = [
+                    f"{players_by_id[player_id].display_name} ({player_id})" for player_id in group
+                ]
+                group_descriptions.append(", ".join(group_names))
+            lines.append("Ambiguous intel: " + " | ".join(group_descriptions))
+        if not knowledge.has_information:
+            lines.append("No additional intel is provided beyond your role.")
+
+        _write(
+            backend,
+            log,
+            "\n".join(lines),
+            visibility=EventVisibility.PRIVATE,
+            audience=[player_audience_tag(player.player_id)],
+        )
+
+
 def _read(
     backend: InteractionIO,
     log: list[InteractionLogEntry],
@@ -429,28 +472,6 @@ def _write(
     )
 
 
-def main() -> None:  # pragma: no cover - CLI entry point
-    backend = CLIInteraction()
-    player_count = _prompt_player_count(backend)
-    config = GameConfig.default(player_count)
-    run_interactive_game(config, io=backend)
-
-
-if __name__ == "__main__":  # pragma: no cover - CLI entry point
-    main()
-
-
-__all__ = [
-    "CLIInteraction",
-    "InteractionEventType",
-    "InteractionIO",
-    "InteractionLogEntry",
-    "InteractionResult",
-    "main",
-    "run_interactive_game",
-]
-
-
 def _filter_transcript(
     entries: Sequence[InteractionLogEntry],
     audience_tags: Sequence[str],
@@ -472,3 +493,25 @@ def _filter_transcript(
 
 def _audience_tuple(audience: Sequence[str] | None) -> Tuple[str, ...]:
     return tuple(audience or ())
+
+
+def main() -> None:  # pragma: no cover - CLI entry point
+    backend = CLIInteraction()
+    player_count = _prompt_player_count(backend)
+    config = GameConfig.default(player_count)
+    run_interactive_game(config, io=backend)
+
+
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
+    main()
+
+
+__all__ = [
+    "CLIInteraction",
+    "InteractionEventType",
+    "InteractionIO",
+    "InteractionLogEntry",
+    "InteractionResult",
+    "main",
+    "run_interactive_game",
+]

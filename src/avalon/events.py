@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Iterable, Mapping, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Iterable, Mapping, Sequence, Tuple, Union, cast
 
 if TYPE_CHECKING:  # pragma: no cover - import only for type hints
     from .enums import Alignment
@@ -203,9 +203,10 @@ def player_audience_tag(player_id: str) -> str:
 def alignment_audience_tag(alignment: Union["Alignment", str]) -> str:
     """Construct the audience tag used for alignment-scoped events."""
 
-    if isinstance(alignment, str):
-        return f"alignment:{alignment}"
-    return f"alignment:{alignment.value}"
+    if hasattr(alignment, "value"):
+        enum_alignment = cast("Alignment", alignment)
+        return f"alignment:{enum_alignment.value}"
+    return f"alignment:{alignment}"
 
 
 __all__ = [
