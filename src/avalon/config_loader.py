@@ -62,16 +62,22 @@ def load_config_file(config_path: str | Path) -> GameSetupConfig:
     registrations: list[PlayerRegistration] = []
     for idx, player_entry in enumerate(player_data):
         if isinstance(player_entry, str):
-            # Simple format: just player name (defaults to human)
+            # Simple format: just player name (defaults to human, auto-generated ID)
             registrations.append(
                 PlayerRegistration(display_name=player_entry, player_type=PlayerType.HUMAN)
             )
         elif isinstance(player_entry, dict):
-            # Structured format: {name: "Alice", type: "agent"}
+            # Structured format: {name: "Alice", id: "alice", type: "agent"}
             name = player_entry.get("name")
             if not name:
                 raise ConfigurationError(f"Player entry {idx + 1} missing 'name' field")
 
+            # Extract optional player_id
+            player_id = player_entry.get("id")
+            if player_id is not None and not isinstance(player_id, str):
+                raise ConfigurationError(f"Player {name}: 'id' must be a string")
+
+            # Extract optional player type
             type_str = player_entry.get("type", "human")
             if not isinstance(type_str, str):
                 raise ConfigurationError(f"Player {name}: 'type' must be a string")
@@ -87,7 +93,11 @@ def load_config_file(config_path: str | Path) -> GameSetupConfig:
                 )
 
             registrations.append(
-                PlayerRegistration(display_name=str(name), player_type=player_type)
+                PlayerRegistration(
+                    display_name=str(name),
+                    player_id=str(player_id) if player_id is not None else None,
+                    player_type=player_type,
+                )
             )
         else:
             raise ConfigurationError(

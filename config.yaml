@@ -2,6 +2,9 @@
 # This file configures a complete game setup including players, roles, and briefing options.
 
 # Player names in seat order (5-10 players)
+# Two formats supported:
+# 1. Simple format (string): "Alice" - defaults to human player with auto-generated ID (player_1, player_2, etc.)
+# 2. Structured format (dict): {name: "Alice", type: "agent"} - specify player type
 players:
   - a
   - b

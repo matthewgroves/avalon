@@ -233,3 +233,64 @@ optional_roles: []
             load_config_file(config_path)
     finally:
         Path(config_path).unlink()
+
+
+def test_load_config_with_player_ids() -> None:
+    """Player IDs are correctly extracted from structured player format."""
+    yaml_content = """
+players:
+  - name: Alice
+    id: alice_id
+    type: human
+  - name: Bob
+    id: bob_id
+  - Charlie
+  - Dave
+  - Eve
+
+optional_roles: []
+"""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write(yaml_content)
+        config_path = f.name
+
+    try:
+        setup_config = load_config_file(config_path)
+        registrations = setup_config.registrations
+
+        # Alice has explicit ID and type
+        assert registrations[0].display_name == "Alice"
+        assert registrations[0].player_id == "alice_id"
+        assert registrations[0].player_type == PlayerType.HUMAN
+
+        # Bob has explicit ID, type defaults to human
+        assert registrations[1].display_name == "Bob"
+        assert registrations[1].player_id == "bob_id"
+        assert registrations[1].player_type == PlayerType.HUMAN
+
+        # Charlie uses simple format, no explicit ID
+        assert registrations[2].display_name == "Charlie"
+        assert registrations[2].player_id is None
+        assert registrations[2].player_type == PlayerType.HUMAN
+    finally:
+        Path(config_path).unlink()
+
+
+def test_load_config_invalid_player_id_type() -> None:
+    """Reject config with non-string player ID."""
+    yaml_content = """
+players:
+  - name: Alice
+    id: 123
+
+optional_roles: []
+"""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write(yaml_content)
+        config_path = f.name
+
+    try:
+        with pytest.raises(ConfigurationError, match="'id' must be a string"):
+            load_config_file(config_path)
+    finally:
+        Path(config_path).unlink()

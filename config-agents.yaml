@@ -2,15 +2,15 @@
 # Example configuration showing mixed human and LLM agent players
 
 # Players can be specified in two formats:
-# 1. Simple format (string): defaults to human player
-# 2. Structured format (dict): specify name and type
+# 1. Simple format (string): defaults to human player with auto-generated ID (player_1, player_2, etc.)
+# 2. Structured format (dict): specify name and type (id is auto-generated)
 
 players:
-  # Human players (simple format)
+  # Human players (simple format or structured)
   - Alice
   - Bob
   
-  # Agent players (structured format)
+  # Agent players (structured format with type)
   - name: AgentCarol
     type: agent
   - name: AgentDave
