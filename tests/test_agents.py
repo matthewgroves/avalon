@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from avalon.agents import (
+    AgentObservation,
     AssassinationGuess,
     MissionAction,
     TeamProposal,
@@ -12,6 +13,7 @@ from avalon.agents import (
 from avalon.config import GameConfig
 from avalon.enums import Alignment
 from avalon.game_state import GamePhase, GameState
+from avalon.mock_llm_client import MockLLMClient, create_simple_agent_strategy
 from avalon.roles import RoleType, build_role_list
 from avalon.setup import PlayerRegistration, perform_setup
 
@@ -222,3 +224,126 @@ def test_observation_respects_player_count_for_fail_threshold() -> None:
 
     # 7-player game, round 4 requires 2 fails
     assert observation.required_fail_count == 2
+
+
+def test_mock_llm_client_scripted_responses() -> None:
+    """MockLLMClient returns scripted responses in sequence."""
+    mock_client = MockLLMClient(
+        team_proposals=[
+            TeamProposal(("player_1", "player_2"), "First proposal"),
+            TeamProposal(("player_3", "player_4"), "Second proposal"),
+        ],
+        vote_decisions=[
+            VoteDecision(True, "Approve first"),
+            VoteDecision(False, "Reject second"),
+        ],
+        mission_actions=[
+            MissionAction(True, "Success first"),
+            MissionAction(False, "Fail second"),
+        ],
+    )
+
+    # Setup basic observation
+    registrations = [PlayerRegistration(f"Player{i}") for i in range(5)]
+    roles = build_role_list(5)
+    config = GameConfig(player_count=5, roles=roles)
+    setup = perform_setup(config, registrations)
+    state = GameState.from_setup(setup)
+    player_1_briefing = next(b for b in setup.briefings if b.player.player_id == "player_1")
+    observation = build_observation(state, "player_1", player_1_briefing.knowledge)
+
+    # Test scripted responses
+    proposal1 = mock_client.propose_team(observation)
+    assert proposal1.team == ("player_1", "player_2")
+    assert proposal1.reasoning == "First proposal"
+
+    proposal2 = mock_client.propose_team(observation)
+    assert proposal2.team == ("player_3", "player_4")
+    assert proposal2.reasoning == "Second proposal"
+
+    vote1 = mock_client.vote_on_team(observation)
+    assert vote1.approve is True
+
+    vote2 = mock_client.vote_on_team(observation)
+    assert vote2.approve is False
+
+    action1 = mock_client.execute_mission(observation)
+    assert action1.success is True
+
+    action2 = mock_client.execute_mission(observation)
+    assert action2.success is False
+
+
+def test_mock_llm_client_strategy_functions() -> None:
+    """MockLLMClient can use strategy functions instead of scripted responses."""
+
+    def custom_propose(obs: AgentObservation) -> TeamProposal:
+        # Always include the agent themselves
+        team = (obs.player_id,) + obs.all_player_ids[1 : obs.required_team_size]
+        return TeamProposal(team=team, reasoning="Always include self")
+
+    mock_client = MockLLMClient(propose_team_fn=custom_propose)
+
+    registrations = [PlayerRegistration(f"Player{i}") for i in range(5)]
+    roles = build_role_list(5)
+    config = GameConfig(player_count=5, roles=roles)
+    setup = perform_setup(config, registrations)
+    state = GameState.from_setup(setup)
+    player_1_briefing = next(b for b in setup.briefings if b.player.player_id == "player_1")
+    observation = build_observation(state, "player_1", player_1_briefing.knowledge)
+
+    proposal = mock_client.propose_team(observation)
+    assert "player_1" in proposal.team
+    assert proposal.reasoning == "Always include self"
+
+
+def test_create_simple_agent_strategy() -> None:
+    """create_simple_agent_strategy creates a basic mock agent."""
+    mock_client = create_simple_agent_strategy(always_approve=True, always_succeed=True)
+
+    registrations = [PlayerRegistration(f"Player{i}") for i in range(5)]
+    roles = build_role_list(5)
+    config = GameConfig(player_count=5, roles=roles)
+    setup = perform_setup(config, registrations)
+    state = GameState.from_setup(setup)
+    player_1_briefing = next(b for b in setup.briefings if b.player.player_id == "player_1")
+    observation = build_observation(state, "player_1", player_1_briefing.knowledge)
+
+    # Test all decision methods work
+    proposal = mock_client.propose_team(observation)
+    assert len(proposal.team) == observation.required_team_size
+
+    vote = mock_client.vote_on_team(observation)
+    assert vote.approve is True
+
+    action = mock_client.execute_mission(observation)
+    assert action.success is True
+
+    guess = mock_client.guess_merlin(observation)
+    assert guess.target_id in observation.all_player_ids
+
+
+def test_mock_llm_client_fallback_behavior() -> None:
+    """MockLLMClient provides sensible defaults when no responses scripted."""
+    mock_client = MockLLMClient()
+
+    registrations = [PlayerRegistration(f"Player{i}") for i in range(5)]
+    roles = build_role_list(5)
+    config = GameConfig(player_count=5, roles=roles)
+    setup = perform_setup(config, registrations)
+    state = GameState.from_setup(setup)
+    player_1_briefing = next(b for b in setup.briefings if b.player.player_id == "player_1")
+    observation = build_observation(state, "player_1", player_1_briefing.knowledge)
+
+    # Should return defaults without errors
+    proposal = mock_client.propose_team(observation)
+    assert len(proposal.team) == observation.required_team_size
+
+    vote = mock_client.vote_on_team(observation)
+    assert isinstance(vote.approve, bool)
+
+    action = mock_client.execute_mission(observation)
+    assert isinstance(action.success, bool)
+
+    guess = mock_client.guess_merlin(observation)
+    assert guess.target_id in observation.all_player_ids

@@ -169,25 +169,24 @@
 - Concurrency between multiple agents: plan for turn-based message queue abstraction if expanding beyond single-thread CLI.
 - Stretch goals: web/socket-based UI, pluggable LLM agent management service, analytics dashboard for mission history.
 
-### Phase 10: LLM Agent Player Foundation
+### Phase 10: LLM Agent Player Foundation ✅
 - [x] **Player Type Designation** ✅
 	- Extend `PlayerRegistration` to include player type (human vs agent).
 	- Update config loader to parse agent designations from YAML.
 	- Update CLI prompts to ask for player type during interactive setup.
 	- Store player type in `Player` model for runtime access.
 	- Add comprehensive tests for player type flows.
-- [ ] **Agent Interface Abstraction**
+- [x] **Agent Interface Abstraction** ✅
 	- Define protocol/interface for agent decision-making operations (propose team, vote, mission decision, assassination guess).
-	- Define protocol for agent communication (make statements, respond to questions).
 	- Create observation state objects containing game context visible to each player.
 	- Design action schema for agent responses (structured output format).
-- [ ] **Google AI Studio Integration**
+- [x] **Google AI Studio Integration** ✅
 	- Add google-generativeai dependency for Gemini API access.
 	- Create LLM client wrapper handling API authentication via environment variable.
 	- Implement prompt construction utilities for game state serialization.
 	- Add response parsing with validation and error recovery.
-	- Configure for Gemini 2.0 Flash model (note: Gemma 3 is not available via AI Studio API; Gemini 2.0 Flash is the current recommended model).
-- [ ] **Unit Tests**
+	- Configure for Gemini 2.0 Flash model.
+- [x] **Unit Tests** ✅
 	- Test player type registration and serialization.
 	- Mock LLM client for deterministic agent behavior testing.
 	- Validate observation state construction for different game phases.
