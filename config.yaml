@@ -1,0 +1,34 @@
+# Avalon Game Configuration
+# This file configures a complete game setup including players, roles, and briefing options.
+
+# Player names in seat order (5-10 players)
+players:
+  - a
+  - b
+  - c
+  - d
+  - e
+
+# Optional special roles to include beyond the essentials (Merlin and Assassin are always included)
+# Available options: percival, morgana, mordred, oberon
+# The remaining slots will be filled with generic loyal_servant and minion_of_mordred roles
+# to match the required team sizes.
+optional_roles:
+  - mordred
+
+# Briefing delivery configuration
+briefing:
+  # Mode: 'sequential' (one at a time with prompts) or 'batch' (all at once for manual distribution)
+  mode: sequential
+  
+  # Pause before showing each player's briefing (requires confirmation to proceed)
+  pause_before_each: false
+  
+  # Pause after showing each player's briefing (requires confirmation before moving to next)
+  pause_after_each: false
+
+# Optional: Fixed random seed for deterministic role assignment (useful for testing)
+# random_seed: 42
+
+# Optional: Enable Lady of the Lake module (default: false)
+# lady_of_the_lake_enabled: false

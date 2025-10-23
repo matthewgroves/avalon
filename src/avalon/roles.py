@@ -239,3 +239,69 @@ def is_resistance(role: RoleType) -> bool:
     """Determine whether the role is aligned with the resistance."""
 
     return role_alignment(role) is Alignment.RESISTANCE
+
+
+def build_role_list(
+    player_count: int,
+    *,
+    optional_roles: Sequence[RoleType] | None = None,
+) -> tuple[RoleType, ...]:
+    """Build a role list from player count and optional special role selections.
+
+    Always includes Merlin and Assassin (essential roles). Fills remaining slots
+    with generic LOYAL_SERVANT and MINION_OF_MORDRED to meet alignment requirements.
+
+    Args:
+        player_count: Number of players (5-10).
+        optional_roles: Optional special roles to include (Percival, Morgana, Mordred, Oberon).
+
+    Returns:
+        Tuple of roles matching the player count and alignment requirements.
+
+    Raises:
+        ConfigurationError: If player count is invalid or role combination is impossible.
+    """
+    if player_count not in EXPECTED_ALIGNMENT_COUNTS:
+        raise ConfigurationError(f"Unsupported player count: {player_count}")
+
+    expected_resistance, expected_minions = EXPECTED_ALIGNMENT_COUNTS[player_count]
+
+    # Start with essential roles
+    roles: list[RoleType] = [RoleType.MERLIN, RoleType.ASSASSIN]
+    resistance_count = 1  # Merlin
+    minion_count = 1  # Assassin
+
+    # Add optional roles if provided
+    if optional_roles:
+        for role in optional_roles:
+            if role in (RoleType.MERLIN, RoleType.ASSASSIN):
+                continue  # Already included
+            if role in (RoleType.LOYAL_SERVANT, RoleType.MINION_OF_MORDRED):
+                continue  # Generic roles shouldn't be in optional list
+            if roles.count(role) > 0:
+                raise ConfigurationError(f"Role {role.value} specified multiple times")
+
+            alignment = role_alignment(role)
+            if alignment is Alignment.RESISTANCE:
+                if resistance_count >= expected_resistance:
+                    raise ConfigurationError(
+                        f"Too many resistance roles for {player_count} players"
+                    )
+                resistance_count += 1
+            else:
+                if minion_count >= expected_minions:
+                    raise ConfigurationError(f"Too many minion roles for {player_count} players")
+                minion_count += 1
+
+            roles.append(role)
+
+    # Fill remaining slots with generic roles
+    while resistance_count < expected_resistance:
+        roles.append(RoleType.LOYAL_SERVANT)
+        resistance_count += 1
+
+    while minion_count < expected_minions:
+        roles.append(RoleType.MINION_OF_MORDRED)
+        minion_count += 1
+
+    return tuple(roles)

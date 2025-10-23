@@ -33,13 +33,16 @@ Avalon is a Python implementation of the Resistance: Avalon board game. The proj
 - Game state finite-state machine covering team proposals, voting, mission resolution, auto-fail handling, scoring, assassination workflow, and mission action/public summary logging (`avalon.game_state`).
 - Unit tests covering configuration, setup, and comprehensive game state scenarios.
 - Interaction utilities with a prompt-based CLI runner and scripted harness for automated validation (`avalon.interaction`).
+- Custom role selection allowing users to choose which optional special characters (Percival, Morgana, Mordred, Oberon) to include, with remaining slots filled by generic servants/minions (`avalon.roles.build_role_list`).
+- YAML configuration file support for fully automated game setup without interactive prompts (`avalon.config_loader`).
 - Structured event logging primitives (`avalon.events`) captured during state transitions and major outcomes.
 - Persistence helpers for snapshotting and restoring game state, including event logs (`avalon.persistence`).
 
 ## Interactive CLI
 
 - Run `poetry run python -m avalon.interaction` to play a full game via the console.
-- The CLI prompts for player count, collects player names, and guides proposals, votes, mission cards, and assassination guesses.
+- The CLI prompts for player count, optional special character selection, player names, and guides proposals, votes, mission cards, and assassination guesses.
+- Alternatively, pass a config file with `poetry run python -m avalon.interaction --config config.yaml` to skip setup prompts and load all configuration from YAML.
 - Sensitive decisions (votes and mission cards) are collected using hidden prompts to preserve secrecy at the table.
 - Private setup briefings can be tailored via `BriefingOptions` (sequential vs batch, optional readiness/acknowledgement pauses).
 - `run_interactive_game` returns an `InteractionResult` bundling the final `GameState` and a transcript of prompts/responses (`InteractionLogEntry`) categorized by `InteractionEventType` (prompt, hidden prompt, output).

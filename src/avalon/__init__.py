@@ -1,6 +1,7 @@
 """Avalon game engine package."""
 
 from .config import GameConfig, MissionConfig
+from .config_loader import GameSetupConfig, load_config_file
 from .events import (
     EventLog,
     EventVisibility,
@@ -37,6 +38,7 @@ from .roles import (
     ROLE_DEFINITIONS,
     RoleDefinition,
     RoleTag,
+    build_role_list,
     default_roles_for_player_count,
     is_minion,
     is_resistance,
@@ -49,6 +51,7 @@ __all__ = [
     "AgentHook",
     "DEFAULT_ROLE_SET_BY_PLAYER_COUNT",
     "GameConfig",
+    "GameSetupConfig",
     "EventLog",
     "GameEvent",
     "GameEventType",
@@ -78,10 +81,12 @@ __all__ = [
     "RoleDefinition",
     "RoleTag",
     "SetupResult",
+    "build_role_list",
     "compute_setup_knowledge",
     "default_roles_for_player_count",
     "is_minion",
     "is_resistance",
+    "load_config_file",
     "perform_setup",
     "alignment_audience_tag",
     "player_audience_tag",

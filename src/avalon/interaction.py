@@ -8,12 +8,12 @@ from getpass import getpass
 from typing import Protocol, Sequence, Tuple
 
 from .config import GameConfig
-from .enums import Alignment
+from .enums import Alignment, RoleType
 from .events import EventLog, EventVisibility, alignment_audience_tag, player_audience_tag
 from .exceptions import InvalidActionError
 from .game_state import GamePhase, GameState, MissionDecision
 from .players import Player
-from .roles import ROLE_DEFINITIONS
+from .roles import ROLE_DEFINITIONS, build_role_list
 from .setup import PlayerRegistration, SetupResult, perform_setup
 
 
@@ -138,6 +138,7 @@ def run_interactive_game(
     seed: int | None = None,
     event_log: EventLog | None = None,
     briefing_options: BriefingOptions | None = None,
+    registrations: Sequence[PlayerRegistration] | None = None,
 ) -> InteractionResult:
     """Run an Avalon game loop using the provided interaction backend."""
 
@@ -146,7 +147,8 @@ def run_interactive_game(
     delivery_options = briefing_options or BriefingOptions()
 
     _write(backend, log, "\n=== Avalon Setup ===")
-    registrations = _collect_registrations(config, backend, log)
+    if registrations is None:
+        registrations = _collect_registrations(config, backend, log)
     setup = perform_setup(config, registrations, seed=seed)
     state = GameState.from_setup(setup)
     state.event_log = event_log or EventLog()
@@ -206,6 +208,58 @@ def _collect_registrations(
                 break
             _write(backend, log, "Names must be non-empty. Please try again.")
     return registrations
+
+
+def _prompt_optional_roles(
+    backend: InteractionIO,
+    log: list[InteractionLogEntry],
+) -> list[RoleType]:
+    """Prompt user to select optional special characters to include."""
+    _write(
+        backend,
+        log,
+        "\nOptional special characters (Merlin and Assassin are always included):",
+    )
+    _write(backend, log, "  1. Percival")
+    _write(backend, log, "  2. Morgana")
+    _write(backend, log, "  3. Mordred")
+    _write(backend, log, "  4. Oberon")
+    _write(
+        backend,
+        log,
+        "\nEnter numbers separated by spaces (e.g., '2 3' for Morgana and Mordred), "
+        "or press Enter to skip:",
+    )
+
+    response = _read(backend, log, "> ").strip()
+    if not response:
+        return []
+
+    role_map = {
+        "1": RoleType.PERCIVAL,
+        "2": RoleType.MORGANA,
+        "3": RoleType.MORDRED,
+        "4": RoleType.OBERON,
+    }
+
+    tokens = response.replace(",", " ").split()
+    selected_roles: list[RoleType] = []
+
+    for token in tokens:
+        if token in role_map:
+            role = role_map[token]
+            if role not in selected_roles:
+                selected_roles.append(role)
+        else:
+            _write(backend, log, f"  Warning: ignoring invalid selection '{token}'")
+
+    if selected_roles:
+        names = [role.value.replace("_", " ").title() for role in selected_roles]
+        _write(backend, log, f"Selected: {', '.join(names)}")
+    else:
+        _write(backend, log, "No optional roles selected.")
+
+    return selected_roles
 
 
 def _announce_roster(
@@ -560,10 +614,60 @@ def _audience_tuple(audience: Sequence[str] | None) -> Tuple[str, ...]:
 
 
 def main() -> None:  # pragma: no cover - CLI entry point
+    """Run the interactive Avalon CLI.
+
+    Supports two modes:
+    1. Interactive setup: prompts for all game configuration
+    2. Config file: pass --config <path> to load from YAML
+    """
+    import sys
+
+    from .config_loader import load_config_file
+
     backend = CLIInteraction()
-    player_count = _prompt_player_count(backend)
-    config = GameConfig.default(player_count)
-    run_interactive_game(config, io=backend)
+
+    # Check for config file argument
+    config_path = None
+    if len(sys.argv) > 1:
+        if sys.argv[1] in ("--config", "-c") and len(sys.argv) > 2:
+            config_path = sys.argv[2]
+        elif not sys.argv[1].startswith("-"):
+            config_path = sys.argv[1]
+
+    if config_path:
+        # Load from config file
+        try:
+            setup_config = load_config_file(config_path)
+            backend.write(f"Loaded configuration from {config_path}")
+            backend.write(
+                f"Game: {setup_config.game_config.player_count} players, "
+                f"{len(setup_config.game_config.roles)} roles"
+            )
+            run_interactive_game(
+                setup_config.game_config,
+                io=backend,
+                seed=setup_config.game_config.random_seed,
+                briefing_options=setup_config.briefing_options,
+                registrations=setup_config.registrations,
+            )
+        except (FileNotFoundError, Exception) as exc:
+            backend.write(f"Error loading config: {exc}")
+            sys.exit(1)
+    else:
+        # Interactive setup
+        player_count = _prompt_player_count(backend)
+
+        # Prompt for optional role selection
+        log: list[InteractionLogEntry] = []
+        optional_roles = _prompt_optional_roles(backend, log)
+
+        # Build role list
+        roles = build_role_list(
+            player_count, optional_roles=optional_roles if optional_roles else None
+        )
+        config = GameConfig(player_count=player_count, roles=roles)
+
+        run_interactive_game(config, io=backend)
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI entry point

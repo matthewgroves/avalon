@@ -7,6 +7,7 @@ from avalon.exceptions import ConfigurationError
 from avalon.roles import (
     DEFAULT_ROLE_SET_BY_PLAYER_COUNT,
     ROLE_DEFINITIONS,
+    build_role_list,
     is_minion,
     is_resistance,
     role_alignment,
@@ -74,3 +75,69 @@ def test_duplicate_unique_role_rejected() -> None:
     )
     with pytest.raises(ConfigurationError):
         validate_role_selection(5, roles)
+
+
+def test_build_role_list_with_no_optional_roles() -> None:
+    """Build role list with only essentials (Merlin + Assassin) fills rest with generics."""
+    roles = build_role_list(5, optional_roles=None)
+    assert len(roles) == 5
+    assert roles.count(RoleType.MERLIN) == 1
+    assert roles.count(RoleType.ASSASSIN) == 1
+    assert roles.count(RoleType.LOYAL_SERVANT) == 2
+    assert roles.count(RoleType.MINION_OF_MORDRED) == 1
+
+
+def test_build_role_list_with_mordred_only() -> None:
+    """Build 5-player game with only Mordred as optional special character."""
+    roles = build_role_list(5, optional_roles=[RoleType.MORDRED])
+    assert len(roles) == 5
+    assert roles.count(RoleType.MERLIN) == 1
+    assert roles.count(RoleType.ASSASSIN) == 1
+    assert roles.count(RoleType.MORDRED) == 1
+    assert roles.count(RoleType.LOYAL_SERVANT) == 2
+    assert roles.count(RoleType.MINION_OF_MORDRED) == 0
+
+
+def test_build_role_list_with_multiple_optional() -> None:
+    """Build 7-player game with Percival, Morgana, and Mordred."""
+    roles = build_role_list(
+        7, optional_roles=[RoleType.PERCIVAL, RoleType.MORGANA, RoleType.MORDRED]
+    )
+    assert len(roles) == 7
+    assert roles.count(RoleType.MERLIN) == 1
+    assert roles.count(RoleType.PERCIVAL) == 1
+    assert roles.count(RoleType.ASSASSIN) == 1
+    assert roles.count(RoleType.MORGANA) == 1
+    assert roles.count(RoleType.MORDRED) == 1
+    # 4 resistance (Merlin, Percival, 2 servants), 3 minions (Assassin, Morgana, Mordred)
+    assert roles.count(RoleType.LOYAL_SERVANT) == 2
+    assert roles.count(RoleType.MINION_OF_MORDRED) == 0
+
+
+def test_build_role_list_validates_result() -> None:
+    """Ensure build_role_list produces valid role selections."""
+    # Test various player counts with different optional role combinations
+    roles_5 = build_role_list(5, optional_roles=[RoleType.MORDRED])
+    validate_role_selection(5, roles_5)
+
+    roles_7 = build_role_list(7, optional_roles=[RoleType.PERCIVAL, RoleType.MORGANA])
+    validate_role_selection(7, roles_7)
+
+    roles_10 = build_role_list(
+        10,
+        optional_roles=[RoleType.PERCIVAL, RoleType.MORGANA, RoleType.MORDRED, RoleType.OBERON],
+    )
+    validate_role_selection(10, roles_10)
+
+
+def test_build_role_list_too_many_minion_roles() -> None:
+    """Reject when too many minion special roles requested."""
+    with pytest.raises(ConfigurationError, match="Too many minion roles"):
+        # 5 players needs 2 minions, but we're requesting 3 (Assassin + Morgana + Mordred)
+        build_role_list(5, optional_roles=[RoleType.MORGANA, RoleType.MORDRED])
+
+
+def test_build_role_list_duplicate_role() -> None:
+    """Reject duplicate special roles in optional list."""
+    with pytest.raises(ConfigurationError, match="specified multiple times"):
+        build_role_list(7, optional_roles=[RoleType.MORDRED, RoleType.MORDRED])

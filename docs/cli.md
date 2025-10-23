@@ -1,6 +1,6 @@
 # Interactive CLI Guide
 
-The `avalon.interaction` module provides a prompt-driven interface for running full Avalon games in the terminal. This guide covers prerequisites, execution steps, and the structure of the interaction transcript exposed after each run.
+The `avalon.interaction` module provides a prompt-driven interface for running full Avalon games in the terminal. This guide covers prerequisites, execution steps, role selection, configuration files, and the structure of the interaction transcript exposed after each run.
 
 ## Prerequisites
 
@@ -9,7 +9,9 @@ The `avalon.interaction` module provides a prompt-driven interface for running f
 
 ## Launching the CLI
 
-Use the module entry point to start a game:
+### Interactive Mode
+
+Use the module entry point to start an interactive game:
 
 ```bash
 poetry run python -m avalon.interaction
@@ -18,8 +20,58 @@ poetry run python -m avalon.interaction
 You will be prompted for:
 
 1. **Player count** – Default is 5 (accept with Enter). Valid range is 5–10.
-2. **Player names** – Enter a non-empty display name for each seat.
-3. **Game actions** – The CLI guides proposals, votes, mission cards, and the assassination.
+2. **Optional special characters** – Choose which optional roles to include (Percival, Morgana, Mordred, Oberon). Merlin and Assassin are always included. Remaining slots are filled with generic loyal servants and minions.
+3. **Player names** – Enter a non-empty display name for each seat.
+4. **Game actions** – The CLI guides proposals, votes, mission cards, and the assassination.
+
+### Configuration File Mode
+
+To skip all interactive setup prompts, pass a YAML configuration file:
+
+```bash
+poetry run python -m avalon.interaction --config config.yaml
+```
+
+or
+
+```bash
+poetry run python -m avalon.interaction config.yaml
+```
+
+The configuration file specifies:
+- Player names
+- Optional special roles to include
+- Briefing delivery settings
+- Optional game settings (random seed, Lady of the Lake)
+
+See `config.yaml` in the project root for a complete example.
+
+### Configuration File Format
+
+```yaml
+# Player names in seat order (5-10 players)
+players:
+  - Alice
+  - Bob
+  - Carol
+  - Dave
+  - Eve
+
+# Optional special roles beyond Merlin and Assassin
+# Available: percival, morgana, mordred, oberon
+optional_roles:
+  - mordred
+
+# Briefing delivery configuration
+briefing:
+  mode: sequential  # 'sequential' or 'batch'
+  pause_before_each: false
+  pause_after_each: false
+
+# Optional settings
+# random_seed: 42
+# lady_of_the_lake_enabled: false
+```
 
 Sensitive prompts (votes, mission cards, assassin guess) use hidden input via `getpass` so responses are not echoed to the terminal.
 
