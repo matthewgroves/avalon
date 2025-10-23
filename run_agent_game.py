@@ -48,7 +48,7 @@ def main() -> None:
     print("\n=== Avalon Agent Game ===")
     print(f"Configuration: {config_path}")
     print(f"Players: {human_count} human, {agent_count} agent")
-    print("Using: Gemini 2.0 Flash")
+    print("Using: Gemma 3 (9B)")
     print()
 
     if agent_count == 0:

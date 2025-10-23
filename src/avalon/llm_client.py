@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 import google.generativeai as genai
+from google.api_core import exceptions as google_exceptions
 
 from .agents import (
     AgentObservation,
@@ -43,13 +45,15 @@ class LLMClient(Protocol):
 class GeminiClient:
     """Google Gemini API client for agent decision-making.
 
-    Uses Gemini 2.0 Flash model for fast, cost-effective gameplay.
+    Uses Gemma 3 model for fast, cost-effective gameplay with higher rate limits.
     Requires GEMINI_API_KEY environment variable.
     """
 
-    model_name: str = "gemini-2.0-flash-exp"
+    model_name: str = "gemma-2-9b-it"
     temperature: float = 0.7
     api_key: str | None = None
+    max_retries: int = 3
+    base_retry_delay: float = 1.0
 
     def __post_init__(self) -> None:
         """Configure API client."""
@@ -64,15 +68,55 @@ class GeminiClient:
         self._model = genai.GenerativeModel(self.model_name)
 
     def _generate_text(self, prompt: str) -> str:
-        """Generate text completion from prompt."""
-        response = self._model.generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(
-                temperature=self.temperature,
-                max_output_tokens=1000,
-            ),
-        )
-        return response.text
+        """Generate text completion from prompt with retry logic for rate limits."""
+        last_exception = None
+
+        for attempt in range(self.max_retries):
+            try:
+                response = self._model.generate_content(
+                    prompt,
+                    generation_config=genai.GenerationConfig(
+                        temperature=self.temperature,
+                        max_output_tokens=1000,
+                    ),
+                )
+                return response.text
+            except google_exceptions.ResourceExhausted as exc:
+                last_exception = exc
+                # Extract retry delay from error message if available
+                retry_delay = self.base_retry_delay * (2**attempt)  # Exponential backoff
+
+                # Try to parse the suggested retry delay from the error
+                error_str = str(exc)
+                if "retry in" in error_str.lower():
+                    try:
+                        # Extract number before 's' in "Please retry in X.XXXs"
+                        import re
+
+                        match = re.search(r"retry in ([\d.]+)s", error_str)
+                        if match:
+                            retry_delay = float(match.group(1))
+                    except (ValueError, AttributeError):
+                        pass  # Use exponential backoff if parsing fails
+
+                if attempt < self.max_retries - 1:
+                    retry_msg = (
+                        f"Rate limit hit. Waiting {retry_delay:.1f}s "
+                        f"before retry {attempt + 1}/{self.max_retries}..."
+                    )
+                    print(retry_msg)
+                    time.sleep(retry_delay)
+                else:
+                    # Last attempt failed, raise the exception
+                    raise
+            except Exception:
+                # For non-rate-limit errors, fail immediately
+                raise
+
+        # Should never reach here, but just in case
+        if last_exception:
+            raise last_exception
+        raise RuntimeError("Unexpected state in _generate_text retry logic")
 
     def _build_game_context(self) -> str:
         """Build general game context and strategic guidance."""
