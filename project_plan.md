@@ -218,8 +218,8 @@
 - [x] **Discussion Data Model** ✅
 	- [x] Create `DiscussionStatement` dataclass capturing speaker, message, timestamp, round/phase context.
 	- [x] Add `DiscussionRound` dataclass for structured turn-taking and statement tracking.
-	- [ ] Extend `GameState` to track discussion history per phase.
-	- [ ] Add discussion statements to `AgentObservation` for context in decision-making.
+	- [x] Extend `GameState` to track discussion history per phase.
+	- [x] Add discussion statements to `AgentObservation` for context in decision-making.
 - [ ] **Discussion Configuration**
 	- [ ] Add `DiscussionConfig` dataclass defining when discussions occur and turn limits.
 	- [ ] Define discussion opportunities: PRE_PROPOSAL, PRE_VOTE, POST_MISSION_RESULT, PRE_ASSASSINATION.
