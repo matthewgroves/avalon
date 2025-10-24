@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Sequence, Tuple
 
+from .discussion import DiscussionConfig
 from .enums import Alignment, RoleType
 from .exceptions import ConfigurationError
 from .roles import default_roles_for_player_count, role_alignment, validate_role_selection
@@ -48,6 +49,7 @@ class GameConfig:
     roles: Tuple[RoleType, ...]
     lady_of_the_lake_enabled: bool = False
     random_seed: Optional[int] = None
+    discussion_config: DiscussionConfig = field(default_factory=DiscussionConfig)
     _mission_config: MissionConfig = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -84,6 +86,7 @@ class GameConfig:
             roles=tuple(roles),
             lady_of_the_lake_enabled=self.lady_of_the_lake_enabled,
             random_seed=self.random_seed,
+            discussion_config=self.discussion_config,
         )
 
     @classmethod

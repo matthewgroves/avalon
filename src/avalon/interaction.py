@@ -8,6 +8,7 @@ from getpass import getpass
 from typing import Any, Protocol, Sequence, Tuple
 
 from .config import GameConfig
+from .discussion import DiscussionPhase, DiscussionStatement
 from .enums import Alignment, PlayerType, RoleType
 from .events import EventLog, EventVisibility, alignment_audience_tag, player_audience_tag
 from .exceptions import InvalidActionError
@@ -186,12 +187,26 @@ def run_interactive_game(
     while state.phase is not GamePhase.GAME_OVER:
         _announce_round(state, backend, log)
         if state.phase is GamePhase.TEAM_PROPOSAL:
+            # Pre-proposal discussion
+            _handle_discussion(state, DiscussionPhase.PRE_PROPOSAL, backend, log, agent_manager)
             _handle_team_proposal(state, backend, log, agent_manager, public_statements, log_mgr)
         elif state.phase is GamePhase.TEAM_VOTE:
+            # Pre-vote discussion
+            _handle_discussion(state, DiscussionPhase.PRE_VOTE, backend, log, agent_manager)
             _handle_team_vote(state, backend, log, agent_manager, public_statements, log_mgr)
         elif state.phase is GamePhase.MISSION:
             _handle_mission(state, backend, log, agent_manager, public_statements, log_mgr)
+            # Post-mission discussion (after results shown, before next phase)
+            # Phase may have changed to TEAM_PROPOSAL, ASSASSINATION_PENDING, or GAME_OVER
+            if state.phase is GamePhase.TEAM_PROPOSAL:  # type: ignore[comparison-overlap]
+                _handle_discussion(
+                    state, DiscussionPhase.POST_MISSION_RESULT, backend, log, agent_manager
+                )
         elif state.phase is GamePhase.ASSASSINATION_PENDING:
+            # Pre-assassination discussion
+            _handle_discussion(
+                state, DiscussionPhase.PRE_ASSASSINATION, backend, log, agent_manager
+            )
             _handle_assassination(state, backend, log, agent_manager, public_statements, log_mgr)
         else:  # pragma: no cover - defensive guard
             raise RuntimeError(f"Unhandled phase: {state.phase}")
@@ -607,6 +622,102 @@ def _handle_assassination(
                 visibility=EventVisibility.PRIVATE,
                 audience=[player_audience_tag(assassin_id)],
             )
+
+
+def _handle_discussion(
+    state: GameState,
+    phase: DiscussionPhase,
+    backend: InteractionIO,
+    log: list[InteractionLogEntry],
+    agent_manager: Any | None = None,
+) -> None:
+    """Conduct a discussion round at the specified phase.
+
+    Args:
+        state: Current game state
+        phase: Which discussion phase this is (PRE_PROPOSAL, PRE_VOTE, etc.)
+        backend: IO backend for prompts
+        log: Interaction log
+        agent_manager: Optional agent manager for LLM players
+    """
+    config = state.config.discussion_config
+
+    # Check if discussions are enabled and this phase is enabled
+    if not config.enabled:
+        return
+
+    phase_enabled_map = {
+        DiscussionPhase.PRE_PROPOSAL: config.pre_proposal_enabled,
+        DiscussionPhase.PRE_VOTE: config.pre_vote_enabled,
+        DiscussionPhase.POST_MISSION_RESULT: config.post_mission_enabled,
+        DiscussionPhase.PRE_ASSASSINATION: config.pre_assassination_enabled,
+    }
+
+    if not phase_enabled_map.get(phase, False):
+        return
+
+    # Announce discussion phase
+    phase_names = {
+        DiscussionPhase.PRE_PROPOSAL: "Pre-Proposal Discussion",
+        DiscussionPhase.PRE_VOTE: "Pre-Vote Discussion",
+        DiscussionPhase.POST_MISSION_RESULT: "Post-Mission Discussion",
+        DiscussionPhase.PRE_ASSASSINATION: "Pre-Assassination Discussion",
+    }
+    _write(backend, log, f"\n--- {phase_names[phase]} ---")
+    _write(backend, log, "Players may now discuss. Type 'pass' to skip your turn.\n")
+
+    # Start discussion in game state
+    state.start_discussion(phase)
+
+    # Conduct discussion rounds
+    max_statements = config.max_statements_per_phase or 999  # Effectively unlimited
+
+    for round_num in range(max_statements):
+        _write(backend, log, f"Discussion round {round_num + 1}:")
+        any_statements = False
+
+        for player in state.players:
+            # Check if player has already made max statements
+            if config.max_statements_per_phase and state.current_discussion:
+                player_statements = state.current_discussion.get_statements_by_player(
+                    player.player_id
+                )
+                if len(player_statements) >= config.max_statements_per_phase:
+                    continue
+
+            # Check if this is an agent player
+            if agent_manager and agent_manager.is_agent(player.player_id, state):
+                # TODO: Will be implemented in agent discussion interface
+                msg = f"  {player.display_name}: [Agent discussion not yet implemented]"
+                _write(backend, log, msg)
+                continue
+            # Human player input
+            prompt = f"{player.display_name}, make a statement (or 'pass'): \n"
+            response = _read(backend, log, prompt).strip()
+
+            if not response or response.lower() in ("pass", "skip", ""):
+                _write(backend, log, f"  {player.display_name} passes.")
+                continue
+
+            # Create and add statement
+            statement = DiscussionStatement(
+                speaker_id=player.player_id,
+                message=response,
+                round_number=state.round_number,
+                attempt_number=state.attempt_number,
+                phase=phase,
+            )
+            state.add_discussion_statement(statement)
+            _write(backend, log, f'  {player.display_name}: "{response}"')
+            any_statements = True
+
+        # If no one made statements this round, end discussion
+        if not any_statements:
+            break
+
+    # End discussion in game state
+    state.end_discussion()
+    _write(backend, log, "")
 
 
 def _parse_team(entry: str) -> tuple[str, ...] | None:

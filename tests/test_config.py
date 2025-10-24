@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from avalon.config import TEAM_SIZE_TABLE, GameConfig, MissionConfig
+from avalon.discussion import DiscussionConfig
 from avalon.enums import RoleType
 from avalon.exceptions import ConfigurationError
 
@@ -33,3 +34,29 @@ def test_game_config_rejects_invalid_role_counts() -> None:
     )
     with pytest.raises(ConfigurationError):
         GameConfig(player_count=6, roles=roles)
+
+
+def test_game_config_has_discussion_config() -> None:
+    """Test that GameConfig includes discussion configuration."""
+    config = GameConfig.default(5)
+    assert hasattr(config, "discussion_config")
+    assert isinstance(config.discussion_config, DiscussionConfig)
+    assert config.discussion_config.enabled is True
+
+
+def test_game_config_custom_discussion_config() -> None:
+    """Test GameConfig with custom discussion configuration."""
+    custom_discussion = DiscussionConfig(
+        enabled=False,
+        pre_proposal_enabled=False,
+        max_statements_per_phase=1,
+    )
+    config = GameConfig.default(5)
+    config_with_custom = GameConfig(
+        player_count=config.player_count,
+        roles=config.roles,
+        discussion_config=custom_discussion,
+    )
+    assert config_with_custom.discussion_config.enabled is False
+    assert config_with_custom.discussion_config.pre_proposal_enabled is False
+    assert config_with_custom.discussion_config.max_statements_per_phase == 1

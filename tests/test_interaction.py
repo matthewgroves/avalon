@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Iterable, List
 
 from avalon.config import GameConfig
+from avalon.discussion import DiscussionConfig
 from avalon.enums import Alignment
 from avalon.game_state import GamePhase
 from avalon.interaction import (
@@ -48,7 +49,14 @@ def _play_resistance_victory(
     *,
     briefing_options: BriefingOptions | None = None,
 ) -> tuple[InteractionResult, ScriptedIO, str]:
+    # Disable discussions for scripted tests
+    discussion_config = DiscussionConfig(enabled=False)
     config = GameConfig.default(5)
+    config = GameConfig(
+        player_count=config.player_count,
+        roles=config.roles,
+        discussion_config=discussion_config,
+    )
     names = ["Alice", "Bob", "Carol", "Dave", "Eve"]
     registrations = [PlayerRegistration(name) for name in names]
     setup = perform_setup(config, registrations, seed=seed)
