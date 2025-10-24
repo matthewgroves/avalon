@@ -231,9 +231,20 @@ Config/Setup → GameState → AgentManager → LLMClient → Gemini API
 
 ## Examples
 
-### All-Agent Demo
+### Running a Game
 
-See `demo_agents.py` for a complete example of running a game with 5 agent players using the mock client.
+Use one of the game runners to start a game:
+
+```bash
+# OpenAI with GPT-5 Nano
+poetry run python run_openai_game.py config-test-openai.yaml
+
+# OpenRouter with various models
+poetry run python run_openrouter_game.py config-test-openrouter.yaml
+
+# Gemini (original implementation)
+poetry run python run_agent_game.py config-agents.yaml
+```
 
 ### Custom LLM Client
 

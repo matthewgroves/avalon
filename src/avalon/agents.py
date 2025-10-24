@@ -68,7 +68,7 @@ class TeamProposal:
     """Agent's team proposal response."""
 
     team: Tuple[PlayerId, ...]
-    private_reasoning: str = ""
+    true_reasoning: str = ""
     public_reasoning: str = ""
 
 
@@ -77,7 +77,7 @@ class VoteDecision:
     """Agent's vote on a proposed team."""
 
     approve: bool
-    private_reasoning: str = ""
+    true_reasoning: str = ""
     public_reasoning: str = ""
 
 
@@ -86,7 +86,7 @@ class MissionAction:
     """Agent's mission card submission."""
 
     success: bool  # True for success, False for fail
-    private_reasoning: str = ""
+    true_reasoning: str = ""
     public_reasoning: str = ""
 
 
@@ -95,7 +95,7 @@ class AssassinationGuess:
     """Agent's assassination target guess."""
 
     target_id: PlayerId
-    private_reasoning: str = ""
+    true_reasoning: str = ""
     public_reasoning: str = ""
 
 

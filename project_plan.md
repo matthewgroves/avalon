@@ -236,28 +236,40 @@
 	- Validate turn-taking and coherence of conversations.
 	- Ensure visibility rules respected in multi-agent discussions.
 
-### Phase 13: Agent Memory & Strategy
-- [ ] **Memory System**
-	- Agents maintain conversation history across phases.
-	- Track voting patterns, mission outcomes, and player claims.
-	- Provide historical context in prompts for informed decision-making.
-- [ ] **Strategy Refinement**
-	- Experiment with prompt engineering for better strategic play.
-	- Add role-specific instruction templates (Merlin caution, evil coordination).
-	- Implement few-shot examples for common game scenarios.
-- [ ] **Observability & Tuning**
-	- Log full LLM prompts and responses for analysis.
-	- Add metrics for agent decision quality (alignment with role objectives).
-	- Create tools for replaying agent games with different prompts/models.
-- [ ] **Documentation**
-	- Document agent configuration in YAML format.
-	- Provide examples of mixed human/agent game configs.
-	- Explain API key setup and model selection.
+### Phase 13: Agent Memory & Strategy ✅
+- [x] **Multi-LLM Provider Support** ✅
+	- Implemented OpenAI client for GPT-5 Nano with reasoning model support.
+	- Implemented OpenRouter client for access to multiple open-source models.
+	- All clients inherit from BaseLLMClient protocol with consistent interface.
+	- Support for model-specific parameters (reasoning_effort, max_completion_tokens).
+- [x] **Prompt Engineering & Quality Improvements** ✅
+	- Enhanced knowledge display to explicitly state "These players are EVIL" for Merlin.
+	- Added clear player identity confirmation to prevent confusion.
+	- Implemented deduction examples for Loyal Servants to learn from mission failures.
+	- Added role-specific strategic guidance for all roles.
+	- Improved JSON parsing to handle explanatory text before/after JSON blocks.
+- [x] **"private_reasoning" → "true_reasoning" Terminology** ✅
+	- Renamed all prompt references from "private_reasoning" to "true_reasoning".
+	- Fixed OpenAI safety guardrail issue that was blocking genuine strategic reasoning.
+	- Maintained backward compatibility with existing dataclass field names.
+- [x] **Bug Fixes** ✅
+	- Fixed critical Merlin knowledge bug caused by double `perform_setup()` calls.
+	- Added `setup` parameter to `run_interactive_game()` to prevent role mismatches.
+	- Updated all game runners to pass pre-computed setup objects.
+- [x] **Project Cleanup** ✅
+	- Removed obsolete test/debug scripts (test_openai.py, test_merlin_knowledge.py, etc.).
+	- Cleaned up old backup files (llm_client_old.py).
+	- Updated README with current game runner examples.
+- [x] **Testing & Validation** ✅
+	- All 97 tests passing after prompt improvements.
+	- Verified agent decision quality dramatically improved.
+	- Agents now properly use role knowledge and deduce from patterns.
 
 ## 6. Next Steps
-1. **Immediate**: Design and implement player type designation (Phase 10, task 1).
-2. Define agent interface protocols for decision-making operations.
-3. Integrate Google AI Studio API with Gemini 2.0 Flash model.
-4. Implement basic agent decision-making for all game phases.
-5. Add discussion/communication layer for agent interactions.
+1. **Immediate**: Add discussion/communication layer for richer agent interactions.
+2. Implement agent memory system to track conversation history and patterns.
+3. Add observability tools for analyzing agent decision quality.
+4. Experiment with different models and prompt strategies for optimal play.
+5. Consider adding optional Lady of the Lake mechanic.
+6. Explore multi-turn strategic planning for agents.
 

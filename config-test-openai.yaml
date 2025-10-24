@@ -1,0 +1,27 @@
+# Test configuration: 1 human player + 4 OpenAI AI players
+# Uses OpenAI's GPT-5 Nano model via official API
+
+players:
+  - name: You
+    type: human
+  
+  - name: Alice
+    type: agent
+  
+  - name: Bob
+    type: agent
+  
+  - name: Charlie
+    type: agent
+  
+  - name: Diana
+    type: agent
+
+# Optional roles (empty = use defaults: Merlin, Assassin, Servant x2, Minion)
+optional_roles: []
+
+# Enable detailed logging
+enhanced_logging: true
+
+# Random seed (optional - remove for random games)
+# seed: 42

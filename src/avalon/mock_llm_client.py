@@ -53,7 +53,7 @@ class MockLLMClient:
         team = observation.all_player_ids[: observation.required_team_size]
         return TeamProposal(
             team=team,
-            private_reasoning="Mock default proposal",
+            true_reasoning="Mock default proposal",
             public_reasoning="I chose these players",
         )
 
@@ -70,7 +70,7 @@ class MockLLMClient:
         # Default fallback: always approve
         return VoteDecision(
             approve=True,
-            private_reasoning="Mock default approve",
+            true_reasoning="Mock default approve",
             public_reasoning="This team looks good",
         )
 
@@ -87,7 +87,7 @@ class MockLLMClient:
         # Default fallback: always success
         return MissionAction(
             success=True,
-            private_reasoning="Mock default success",
+            true_reasoning="Mock default success",
             public_reasoning="Playing for the team",
         )
 
@@ -106,7 +106,7 @@ class MockLLMClient:
         # Default fallback: guess first player
         return AssassinationGuess(
             target_id=observation.all_player_ids[0],
-            private_reasoning="Mock default guess",
+            true_reasoning="Mock default guess",
             public_reasoning="They seemed suspicious",
         )
 
@@ -130,7 +130,7 @@ def create_simple_agent_strategy(
         team = obs.all_player_ids[: obs.required_team_size]
         return TeamProposal(
             team=team,
-            private_reasoning="Simple strategy: first N players",
+            true_reasoning="Simple strategy: first N players",
             public_reasoning="These players seem trustworthy",
         )
 
@@ -138,7 +138,7 @@ def create_simple_agent_strategy(
         action = "approve" if always_approve else "reject"
         return VoteDecision(
             approve=always_approve,
-            private_reasoning=f"Always {action}",
+            true_reasoning=f"Always {action}",
             public_reasoning="I think this team will work well"
             if always_approve
             else "I don't trust this team",
@@ -148,7 +148,7 @@ def create_simple_agent_strategy(
         action = "succeed" if always_succeed else "fail"
         return MissionAction(
             success=always_succeed,
-            private_reasoning=f"Always {action}",
+            true_reasoning=f"Always {action}",
             public_reasoning="Doing my best for the team",
         )
 
@@ -159,7 +159,7 @@ def create_simple_agent_strategy(
         )
         return AssassinationGuess(
             target_id=target,
-            private_reasoning="Simple guess",
+            true_reasoning="Simple guess",
             public_reasoning="They made suspiciously good decisions",
         )
 

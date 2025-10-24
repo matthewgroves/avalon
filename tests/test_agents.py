@@ -141,12 +141,12 @@ def test_team_proposal_structure() -> None:
     """TeamProposal correctly stores team and reasoning."""
     proposal = TeamProposal(
         team=("player_1", "player_2", "player_3"),
-        private_reasoning="Choosing trusted players based on voting patterns",
+        true_reasoning="Choosing trusted players based on voting patterns",
         public_reasoning="These players work well together",
     )
     assert len(proposal.team) == 3
     assert "player_1" in proposal.team
-    assert proposal.private_reasoning != ""
+    assert proposal.true_reasoning != ""
     assert proposal.public_reasoning != ""
 
 
@@ -154,18 +154,18 @@ def test_vote_decision_structure() -> None:
     """VoteDecision correctly stores approval and reasoning."""
     approve = VoteDecision(
         approve=True,
-        private_reasoning="Team composition looks good",
+        true_reasoning="Team composition looks good",
         public_reasoning="I trust this team",
     )
     reject = VoteDecision(
         approve=False,
-        private_reasoning="Suspicious behavior from player_3",
+        true_reasoning="Suspicious behavior from player_3",
         public_reasoning="This team doesn't feel right",
     )
 
     assert approve.approve is True
     assert reject.approve is False
-    assert approve.private_reasoning != ""
+    assert approve.true_reasoning != ""
     assert approve.public_reasoning != ""
 
 
@@ -173,12 +173,12 @@ def test_mission_action_structure() -> None:
     """MissionAction correctly stores card choice and reasoning."""
     success_action = MissionAction(
         success=True,
-        private_reasoning="Resistance player",
+        true_reasoning="Resistance player",
         public_reasoning="Supporting the team",
     )
     fail_action = MissionAction(
         success=False,
-        private_reasoning="Sabotaging mission",
+        true_reasoning="Sabotaging mission",
         public_reasoning="I played success but someone failed",
     )
 
@@ -190,11 +190,11 @@ def test_assassination_guess_structure() -> None:
     """AssassinationGuess correctly stores target and reasoning."""
     guess = AssassinationGuess(
         target_id="player_3",
-        private_reasoning="Consistent good plays suggest Merlin",
+        true_reasoning="Consistent good plays suggest Merlin",
         public_reasoning="They seemed too knowledgeable",
     )
     assert guess.target_id == "player_3"
-    assert guess.private_reasoning != ""
+    assert guess.true_reasoning != ""
     assert guess.public_reasoning != ""
 
 
@@ -254,12 +254,12 @@ def test_mock_llm_client_scripted_responses() -> None:
         team_proposals=[
             TeamProposal(
                 ("player_1", "player_2"),
-                private_reasoning="First proposal",
+                true_reasoning="First proposal",
                 public_reasoning="Team one",
             ),
             TeamProposal(
                 ("player_3", "player_4"),
-                private_reasoning="Second proposal",
+                true_reasoning="Second proposal",
                 public_reasoning="Team two",
             ),
         ],
@@ -285,11 +285,11 @@ def test_mock_llm_client_scripted_responses() -> None:
     # Test scripted responses
     proposal1 = mock_client.propose_team(observation)
     assert proposal1.team == ("player_1", "player_2")
-    assert proposal1.private_reasoning == "First proposal"
+    assert proposal1.true_reasoning == "First proposal"
 
     proposal2 = mock_client.propose_team(observation)
     assert proposal2.team == ("player_3", "player_4")
-    assert proposal2.private_reasoning == "Second proposal"
+    assert proposal2.true_reasoning == "Second proposal"
 
     vote1 = mock_client.vote_on_team(observation)
     assert vote1.approve is True
@@ -312,7 +312,7 @@ def test_mock_llm_client_strategy_functions() -> None:
         team = (obs.player_id,) + obs.all_player_ids[1 : obs.required_team_size]
         return TeamProposal(
             team=team,
-            private_reasoning="Always include self",
+            true_reasoning="Always include self",
             public_reasoning="Including myself for reliability",
         )
 
@@ -328,7 +328,7 @@ def test_mock_llm_client_strategy_functions() -> None:
 
     proposal = mock_client.propose_team(observation)
     assert "player_1" in proposal.team
-    assert proposal.private_reasoning == "Always include self"
+    assert proposal.true_reasoning == "Always include self"
 
 
 def test_create_simple_agent_strategy() -> None:

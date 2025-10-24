@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -18,6 +19,7 @@ from .agents import (
     TeamProposal,
     VoteDecision,
 )
+from .enums import Alignment, RoleType
 from .exceptions import ConfigurationError
 
 
@@ -41,96 +43,23 @@ class LLMClient(Protocol):
         ...
 
 
-@dataclass
-class GeminiClient:
-    """Google Gemini API client for agent decision-making.
+class BaseLLMClient(ABC):
+    """Base class with shared prompt building and decision-making logic.
 
-    Uses Gemma 3 model for fast, cost-effective gameplay with higher rate limits.
-    Requires GEMINI_API_KEY environment variable.
+    Subclasses must implement:
+    - __post_init__(): Initialize the API client
+    - _generate_text(prompt: str) -> str: Generate text from prompt
 
-    Rate limiting: Gemma 3 has a 30 RPM limit. We add a 2.1s delay between
-    requests to stay under this limit (60s / 30 requests = 2s per request,
-    plus small buffer).
+    Subclasses should define these attributes:
+    - temperature: float
+    - max_retries: int
+    - base_retry_delay: float
     """
 
-    model_name: str = "gemma-3-12b-it"
-    temperature: float = 0.7
-    api_key: str | None = None
-    max_retries: int = 3
-    base_retry_delay: float = 1.0
-    request_delay: float = 2.1  # Delay between requests to stay under 30 RPM
-
-    def __post_init__(self) -> None:
-        """Configure API client."""
-        if self.api_key is None:
-            self.api_key = os.environ.get("GEMINI_API_KEY")
-        if not self.api_key:
-            raise ConfigurationError(
-                "GEMINI_API_KEY environment variable is required for agent players. "
-                "Get your API key from https://aistudio.google.com/apikey"
-            )
-        genai.configure(api_key=self.api_key)
-        self._model = genai.GenerativeModel(self.model_name)
-        self._last_request_time: float = 0.0
-
+    @abstractmethod
     def _generate_text(self, prompt: str) -> str:
-        """Generate text completion from prompt with retry logic for rate limits."""
-        # Proactive rate limiting: ensure minimum delay between requests
-        current_time = time.time()
-        time_since_last_request = current_time - self._last_request_time
-        if time_since_last_request < self.request_delay:
-            sleep_time = self.request_delay - time_since_last_request
-            time.sleep(sleep_time)
-
-        self._last_request_time = time.time()
-        last_exception = None
-
-        for attempt in range(self.max_retries):
-            try:
-                response = self._model.generate_content(
-                    prompt,
-                    generation_config=genai.GenerationConfig(
-                        temperature=self.temperature,
-                        max_output_tokens=1000,
-                    ),
-                )
-                return response.text
-            except google_exceptions.ResourceExhausted as exc:
-                last_exception = exc
-                # Extract retry delay from error message if available
-                retry_delay = self.base_retry_delay * (2**attempt)  # Exponential backoff
-
-                # Try to parse the suggested retry delay from the error
-                error_str = str(exc)
-                if "retry in" in error_str.lower():
-                    try:
-                        # Extract number before 's' in "Please retry in X.XXXs"
-                        import re
-
-                        match = re.search(r"retry in ([\d.]+)s", error_str)
-                        if match:
-                            retry_delay = float(match.group(1))
-                    except (ValueError, AttributeError):
-                        pass  # Use exponential backoff if parsing fails
-
-                if attempt < self.max_retries - 1:
-                    retry_msg = (
-                        f"Rate limit hit. Waiting {retry_delay:.1f}s "
-                        f"before retry {attempt + 1}/{self.max_retries}..."
-                    )
-                    print(retry_msg)
-                    time.sleep(retry_delay)
-                else:
-                    # Last attempt failed, raise the exception
-                    raise
-            except Exception:
-                # For non-rate-limit errors, fail immediately
-                raise
-
-        # Should never reach here, but just in case
-        if last_exception:
-            raise last_exception
-        raise RuntimeError("Unexpected state in _generate_text retry logic")
+        """Generate text from prompt. Must be implemented by subclasses."""
+        ...
 
     def _build_game_context(self) -> str:
         """Build general game context and strategic guidance."""
@@ -358,9 +287,16 @@ AVOID THESE COMMON MISTAKES:
     def _build_observation_context(self, observation: AgentObservation) -> str:
         """Build a text description of the game state for the agent."""
         lines = [
-            f"You are {observation.display_name} ({observation.player_id})",
-            f"Role: {observation.role.value.replace('_', ' ').title()}",
-            f"Alignment: {observation.alignment.value.title()}",
+            "═══ YOUR IDENTITY ═══",
+            f"YOU are: {observation.display_name} (player ID: {observation.player_id})",
+            f"Your Role: {observation.role.value.replace('_', ' ').title()}",
+            f"Your Alignment: {observation.alignment.value.title()}",
+            "",
+            (
+                f"IMPORTANT: YOU are {observation.display_name}. "
+                f"When you see '{observation.player_id}' mentioned,"
+            ),
+            "that refers to YOU. Any other player_id is a DIFFERENT player, not you.",
             "",
             "Game State:",
             f"- Phase: {observation.phase.value}",
@@ -382,13 +318,33 @@ AVOID THESE COMMON MISTAKES:
         # Role knowledge
         if observation.knowledge.has_information:
             lines.append("")
-            lines.append("Your role knowledge:")
+            lines.append("Your special role knowledge:")
             if observation.knowledge.visible_player_ids:
                 visible_names = [
                     observation.all_player_names[observation.all_player_ids.index(pid)]
                     for pid in observation.knowledge.visible_player_ids
                 ]
-                lines.append(f"  - You know these players: {', '.join(visible_names)}")
+                # Make it crystal clear what this knowledge means
+                if observation.role == RoleType.MERLIN:
+                    lines.append(
+                        "  - These players are EVIL "
+                        f"(you see them as Merlin): {', '.join(visible_names)}"
+                    )
+                    lines.append(
+                        "  - You MUST use this knowledge to avoid/reject teams "
+                        "with these evil players"
+                    )
+                elif observation.alignment == Alignment.MINION:
+                    lines.append(
+                        f"  - These are your FELLOW EVIL players: " f"{', '.join(visible_names)}"
+                    )
+                elif observation.role == RoleType.PERCIVAL:
+                    lines.append(
+                        "  - These players include Merlin "
+                        f"(and Morgana if present): {', '.join(visible_names)}"
+                    )
+                else:
+                    lines.append(f"  - You know these players: {', '.join(visible_names)}")
             if observation.knowledge.ambiguous_player_id_groups:
                 for group in observation.knowledge.ambiguous_player_id_groups:
                     group_names = [
@@ -514,7 +470,7 @@ Consider:
 ({5 - observation.consecutive_rejections} more = auto-fail)
 
 REASONING REQUIREMENTS:
-Private Reasoning:
+True Reasoning:
 - Reference SPECIFIC patterns/facts from the game history
 - Explain how your role knowledge influences this decision
 - If changing from rejected teams, explain WHY you're making different choices
@@ -542,10 +498,10 @@ Example mistakes to AVOID:
 - Generic "gather information" without analyzing information already gathered
 - Approving same suspicious players repeatedly without new reasoning
 
-Respond with a JSON object with BOTH private and public reasoning:
+Respond with a JSON object with BOTH true and public reasoning:
 {{
   "team": ["player_1", "player_2"],
-  "private_reasoning": "your actual strategic thinking (only you see this)",
+  "true_reasoning": "your actual strategic thinking (only you see this)",
   "public_reasoning": "what you'll tell other players (they see this - use for deception)"
 }}
 
@@ -555,18 +511,18 @@ Your response:"""
         parsed = self._parse_json_response(response_text)
 
         team = tuple(parsed.get("team", []))
-        private_reasoning = parsed.get("private_reasoning", "")
+        true_reasoning = parsed.get("true_reasoning", "")
         public_reasoning = parsed.get("public_reasoning", "")
 
         # Validate team size
         if len(team) != observation.required_team_size:
             # Fallback: take first N players if invalid
             team = observation.all_player_ids[: observation.required_team_size]
-            private_reasoning = f"Invalid team size, using fallback. Original: {private_reasoning}"
+            true_reasoning = f"Invalid team size, using fallback. Original: {true_reasoning}"
 
         return TeamProposal(
             team=team,
-            private_reasoning=private_reasoning,
+            true_reasoning=true_reasoning,
             public_reasoning=public_reasoning,
         )
 
@@ -670,8 +626,13 @@ WHEN TO APPROVE (if Evil):
 - Team has good chance to fail anyway
 
 REASONING REQUIREMENTS:
-Private Reasoning:
+True Reasoning:
 - Reference SPECIFIC patterns/facts from the game history
+- IF YOU HAVE NO SPECIAL KNOWLEDGE: Deduce from mission failures!
+  * Example: "Round 1 team was [Alice, Bob], mission failed → one of them is evil"
+  * Example: "Alice on both failed missions → very suspicious"
+  * Example: "I played success on mission 2, it still failed → teammate is evil"
+- IF YOU HAVE SPECIAL KNOWLEDGE (Merlin, Evil): Use it! Don't ignore known evil players
 - Explain how your role knowledge influences this decision
 - Consider: What does this choice reveal about me? How do I maintain cover?
 - Be SPECIFIC about players and their histories, not generic
@@ -687,12 +648,13 @@ Before responding, verify:
 - Are you referencing actual game events, not made-up information?
 - Do your conclusions follow logically from the evidence?
 - Does your reasoning contradict any observable facts?
+- If you know players are evil, are you acting on that knowledge?
 
-Respond with a JSON object with BOTH private and public reasoning:
+Respond with a JSON object with BOTH true and public reasoning:
 {{
   "approve": true,
-  "private_reasoning": "your actual strategic thinking (only you see this)",
-  "public_reasoning": "what you'll tell other players (they see this - use for deception)"
+  "true_reasoning": "your actual strategic thinking (only you see this)",
+  "public_reasoning": "what you'll tell other players (they see this)"
 }}
 
 Your response:"""
@@ -700,13 +662,13 @@ Your response:"""
         response_text = self._generate_text(prompt)
         parsed = self._parse_json_response(response_text)
 
-        approve = parsed.get("approve", False)
-        private_reasoning = parsed.get("private_reasoning", "")
+        approve = bool(parsed.get("approve", False))
+        true_reasoning = parsed.get("true_reasoning", "")
         public_reasoning = parsed.get("public_reasoning", "")
 
         return VoteDecision(
             approve=approve,
-            private_reasoning=private_reasoning,
+            true_reasoning=true_reasoning,
             public_reasoning=public_reasoning,
         )
 
@@ -734,7 +696,7 @@ Consider (if you're a Minion):
 - Cover strategy: Sometimes playing success builds trust for later betrayal
 
 REASONING REQUIREMENTS:
-Private Reasoning:
+True Reasoning:
 - Reference SPECIFIC patterns/facts from the game history
 - Explain your strategic choice (if evil: why fail or success now?)
 - Consider: What does this reveal about me?
@@ -752,11 +714,11 @@ Before responding, verify:
 - Does your reasoning make logical sense?
 - If you claim you played success but mission failed, is that plausible?
 
-Respond with a JSON object with BOTH private and public reasoning:
+Respond with a JSON object with BOTH true and public reasoning:
 {{
   "success": true,
-  "private_reasoning": "your actual strategic thinking (only you see this)",
-  "public_reasoning": "what you'll tell other players (they see this - use for deception)"
+  "true_reasoning": "your actual strategic thinking (only you see this)",
+  "public_reasoning": "what you'll tell other players (they see this)"
 }}
 
 Your response:"""
@@ -764,8 +726,8 @@ Your response:"""
         response_text = self._generate_text(prompt)
         parsed = self._parse_json_response(response_text)
 
-        success = parsed.get("success", True)
-        private_reasoning = parsed.get("private_reasoning", "")
+        success = bool(parsed.get("success", False))
+        true_reasoning = parsed.get("true_reasoning", "")
         public_reasoning = parsed.get("public_reasoning", "")
 
         # Force resistance to play success
@@ -774,11 +736,11 @@ Your response:"""
         if observation.alignment == Alignment.RESISTANCE:
             success = True
             if not parsed.get("success", True):
-                private_reasoning += " [Forced to SUCCESS - Resistance player]"
+                true_reasoning += " [Forced to SUCCESS - Resistance player]"
 
         return MissionAction(
             success=success,
-            private_reasoning=private_reasoning,
+            true_reasoning=true_reasoning,
             public_reasoning=public_reasoning,
         )
 
@@ -809,7 +771,7 @@ ANALYSIS APPROACH:
 - Look for subtle guidance: Merlin must hide while helping
 
 REASONING REQUIREMENTS:
-Private Reasoning:
+True Reasoning:
 - Analyze SPECIFIC voting and team patterns from each player
 - Reference concrete examples of suspicious behavior
 - Explain your deduction process step by step
@@ -826,10 +788,10 @@ Before responding, verify:
 - Does your analysis follow logical deduction?
 - Have you considered all Resistance players, not just vocal ones?
 
-Respond with a JSON object with BOTH private and public reasoning:
+Respond with a JSON object with BOTH true and public reasoning:
 {{
   "target_id": "player_3",
-  "private_reasoning": "your actual analysis (only you see this)",
+  "true_reasoning": "your actual analysis (only you see this)",
   "public_reasoning": "what you'll tell other players (they see this)"
 }}
 
@@ -839,40 +801,149 @@ Your response:"""
         parsed = self._parse_json_response(response_text)
 
         target_id = parsed.get("target_id", observation.all_player_ids[0])
-        private_reasoning = parsed.get("private_reasoning", "")
+        true_reasoning = parsed.get("true_reasoning", "")
         public_reasoning = parsed.get("public_reasoning", "")
 
         # Validate target exists
         if target_id not in observation.all_player_ids:
             target_id = observation.all_player_ids[0]
-            private_reasoning = f"Invalid target, using fallback. Original: {private_reasoning}"
+            true_reasoning = f"Invalid target, using fallback. Original: {true_reasoning}"
 
         return AssassinationGuess(
             target_id=target_id,
-            private_reasoning=private_reasoning,
+            true_reasoning=true_reasoning,
             public_reasoning=public_reasoning,
         )
 
     def _parse_json_response(self, response_text: str) -> dict[str, Any]:
-        """Parse JSON from LLM response, handling markdown code blocks."""
-        # Try to extract JSON from markdown code blocks
+        """Parse JSON from LLM response, handling markdown code blocks and text before JSON."""
         text = response_text.strip()
 
-        # Remove markdown code block markers if present
-        if text.startswith("```"):
+        # Try to find JSON in the response - look for first { and last }
+        first_brace = text.find("{")
+        last_brace = text.rfind("}")
+
+        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+            # Extract just the JSON part
+            json_text = text[first_brace : last_brace + 1]
+            try:
+                return json.loads(json_text)
+            except json.JSONDecodeError:
+                pass  # Fall through to other parsing attempts
+
+        # Try removing markdown code blocks
+        if "```" in text:
             lines = text.split("\n")
-            # Remove first line (```json or ```)
-            lines = lines[1:]
-            # Remove last line if it's ```
-            if lines and lines[-1].strip() == "```":
-                lines = lines[:-1]
-            text = "\n".join(lines)
+            in_code_block = False
+            code_lines = []
+            for line in lines:
+                if line.strip().startswith("```"):
+                    in_code_block = not in_code_block
+                elif in_code_block:
+                    code_lines.append(line)
+            if code_lines:
+                text = "\n".join(code_lines)
 
         try:
             return json.loads(text)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            # Log the parsing failure for debugging
+            print(f"Warning: Failed to parse JSON response: {e}")
+            print(f"Response text (first 200 chars): {response_text[:200]}...")
             # Return empty dict as fallback
             return {}
 
 
-__all__ = ["GeminiClient", "LLMClient"]
+@dataclass
+class GeminiClient(BaseLLMClient):
+    """Google Gemini API client for agent decision-making.
+
+    Uses Gemma 3 model for fast, cost-effective gameplay with higher rate limits.
+    Requires GEMINI_API_KEY environment variable.
+
+    Rate limiting: Gemma 3 has a 30 RPM limit. We add a 2.1s delay between
+    requests to stay under this limit (60s / 30 requests = 2s per request,
+    plus small buffer).
+    """
+
+    model_name: str = "gemma-3-12b-it"
+    temperature: float = 0.7
+    api_key: str | None = None
+    max_retries: int = 3
+    base_retry_delay: float = 1.0
+    request_delay: float = 2.1  # Delay between requests to stay under 30 RPM
+
+    def __post_init__(self) -> None:
+        """Configure API client."""
+        if self.api_key is None:
+            self.api_key = os.environ.get("GEMINI_API_KEY")
+        if not self.api_key:
+            raise ConfigurationError(
+                "GEMINI_API_KEY environment variable is required for agent players. "
+                "Get your API key from https://aistudio.google.com/apikey"
+            )
+        genai.configure(api_key=self.api_key)
+        self._model = genai.GenerativeModel(self.model_name)
+        self._last_request_time: float = 0.0
+
+    def _generate_text(self, prompt: str) -> str:
+        """Generate text completion from prompt with retry logic for rate limits."""
+        # Proactive rate limiting: ensure minimum delay between requests
+        current_time = time.time()
+        time_since_last_request = current_time - self._last_request_time
+        if time_since_last_request < self.request_delay:
+            sleep_time = self.request_delay - time_since_last_request
+            time.sleep(sleep_time)
+
+        self._last_request_time = time.time()
+        last_exception = None
+
+        for attempt in range(self.max_retries):
+            try:
+                response = self._model.generate_content(
+                    prompt,
+                    generation_config=genai.GenerationConfig(
+                        temperature=self.temperature,
+                        max_output_tokens=1000,
+                    ),
+                )
+                return response.text
+            except google_exceptions.ResourceExhausted as exc:
+                last_exception = exc
+                # Extract retry delay from error message if available
+                retry_delay = self.base_retry_delay * (2**attempt)  # Exponential backoff
+
+                # Try to parse the suggested retry delay from the error
+                error_str = str(exc)
+                if "retry in" in error_str.lower():
+                    try:
+                        # Extract number before 's' in "Please retry in X.XXXs"
+                        import re
+
+                        match = re.search(r"retry in ([\d.]+)s", error_str)
+                        if match:
+                            retry_delay = float(match.group(1))
+                    except (ValueError, AttributeError):
+                        pass  # Use exponential backoff if parsing fails
+
+                if attempt < self.max_retries - 1:
+                    retry_msg = (
+                        f"Rate limit hit. Waiting {retry_delay:.1f}s "
+                        f"before retry {attempt + 1}/{self.max_retries}..."
+                    )
+                    print(retry_msg)
+                    time.sleep(retry_delay)
+                else:
+                    # Last attempt failed, raise the exception
+                    raise
+            except Exception:
+                # For non-rate-limit errors, fail immediately
+                raise
+
+        # Should never reach here, but just in case
+        if last_exception:
+            raise last_exception
+        raise RuntimeError("Unexpected state in _generate_text retry logic")
+
+
+__all__ = ["GeminiClient", "BaseLLMClient", "LLMClient"]

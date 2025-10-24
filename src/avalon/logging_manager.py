@@ -78,7 +78,7 @@ OBSERVATION:
 
 DECISION:
   Proposed Team: {decision.team}
-  Private Reasoning: {decision.private_reasoning}
+  True Reasoning: {decision.true_reasoning}
   Public Reasoning: {decision.public_reasoning}
 """
         self._write_log(player_id, content)
@@ -100,7 +100,7 @@ OBSERVATION:
 
 DECISION:
   Vote: {decision.approve}
-  Private Reasoning: {decision.private_reasoning}
+  True Reasoning: {decision.true_reasoning}
   Public Reasoning: {decision.public_reasoning}
 """
         self._write_log(player_id, content)
@@ -122,7 +122,7 @@ OBSERVATION:
 
 DECISION:
   Action: {decision.success}
-  Private Reasoning: {decision.private_reasoning}
+  True Reasoning: {decision.true_reasoning}
   Public Reasoning: {decision.public_reasoning}
 """
         self._write_log(player_id, content)
@@ -144,7 +144,7 @@ OBSERVATION:
 
 DECISION:
   Target: {decision.target_id}
-  Private Reasoning: {decision.private_reasoning}
+  True Reasoning: {decision.true_reasoning}
   Public Reasoning: {decision.public_reasoning}
 """
         self._write_log(player_id, content)

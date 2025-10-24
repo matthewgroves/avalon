@@ -142,6 +142,7 @@ def run_interactive_game(
     registrations: Sequence[PlayerRegistration] | None = None,
     agent_manager: Any | None = None,  # AgentManager, avoiding circular import
     logging_manager: LoggingManager | None = None,
+    setup: SetupResult | None = None,
 ) -> InteractionResult:
     """Run an Avalon game loop using the provided interaction backend.
 
@@ -154,6 +155,7 @@ def run_interactive_game(
         registrations: Pre-configured player registrations.
         agent_manager: Optional agent manager for LLM agent players.
         logging_manager: Optional logging manager for enhanced agent decision logging.
+        setup: Optional pre-computed setup result. If provided, skips setup phase.
 
     Returns:
         InteractionResult with final state and transcript.
@@ -165,9 +167,10 @@ def run_interactive_game(
     log_mgr = logging_manager or LoggingManager(enabled=False)
 
     _write(backend, log, "\n=== Avalon Setup ===")
-    if registrations is None:
-        registrations = _collect_registrations(config, backend, log)
-    setup = perform_setup(config, registrations, seed=seed)
+    if setup is None:
+        if registrations is None:
+            registrations = _collect_registrations(config, backend, log)
+        setup = perform_setup(config, registrations, seed=seed)
     state = GameState.from_setup(setup)
     state.event_log = event_log or EventLog()
     _announce_roster(state.players, backend, log)
