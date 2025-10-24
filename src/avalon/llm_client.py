@@ -47,6 +47,10 @@ class GeminiClient:
 
     Uses Gemma 3 model for fast, cost-effective gameplay with higher rate limits.
     Requires GEMINI_API_KEY environment variable.
+
+    Rate limiting: Gemma 3 has a 30 RPM limit. We add a 2.1s delay between
+    requests to stay under this limit (60s / 30 requests = 2s per request,
+    plus small buffer).
     """
 
     model_name: str = "gemma-3-12b-it"
@@ -54,6 +58,7 @@ class GeminiClient:
     api_key: str | None = None
     max_retries: int = 3
     base_retry_delay: float = 1.0
+    request_delay: float = 2.1  # Delay between requests to stay under 30 RPM
 
     def __post_init__(self) -> None:
         """Configure API client."""
@@ -66,9 +71,18 @@ class GeminiClient:
             )
         genai.configure(api_key=self.api_key)
         self._model = genai.GenerativeModel(self.model_name)
+        self._last_request_time: float = 0.0
 
     def _generate_text(self, prompt: str) -> str:
         """Generate text completion from prompt with retry logic for rate limits."""
+        # Proactive rate limiting: ensure minimum delay between requests
+        current_time = time.time()
+        time_since_last_request = current_time - self._last_request_time
+        if time_since_last_request < self.request_delay:
+            sleep_time = self.request_delay - time_since_last_request
+            time.sleep(sleep_time)
+
+        self._last_request_time = time.time()
         last_exception = None
 
         for attempt in range(self.max_retries):
