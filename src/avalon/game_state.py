@@ -436,6 +436,7 @@ class GameState:
         self._prepare_next_round()
 
     def _handle_auto_fail(self) -> None:
+        """Handle 5 consecutive rejections - this ends the game immediately with evil victory."""
         required_fails = self._required_fail_count()
         record = MissionRecord(
             round_number=self.round_number,
@@ -449,7 +450,10 @@ class GameState:
         )
         self.mission_history.append(record)
         self.current_team = None
-        self.minion_score += 1
+
+        # 5 consecutive rejections = immediate game over, evil wins
+        self.final_winner = Alignment.MINION
+        self._set_phase(GamePhase.GAME_OVER)
         self._record_event(
             GameEventType.MISSION_AUTO_FAILED,
             {
@@ -458,19 +462,10 @@ class GameState:
                 "required_fail_count": record.required_fail_count,
             },
         )
-
-        if self.minion_score >= 3:
-            self.final_winner = Alignment.MINION
-            self._set_phase(GamePhase.GAME_OVER)
-            self._record_event(
-                GameEventType.GAME_COMPLETED,
-                {"winner": Alignment.MINION.value, "reason": "three_failed_missions"},
-            )
-            return
-
-        self.consecutive_rejections = 0
-        self.attempt_number = 1
-        self._prepare_next_round()
+        self._record_event(
+            GameEventType.GAME_COMPLETED,
+            {"winner": Alignment.MINION.value, "reason": "five_consecutive_rejections"},
+        )
 
     def _prepare_next_round(self) -> None:
         if self.round_number >= len(self.config.mission_config.team_sizes):

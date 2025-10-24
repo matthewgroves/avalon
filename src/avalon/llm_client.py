@@ -135,7 +135,44 @@ KEY STRATEGIES:
 - Consider table dynamics: Who is pushing certain narratives? Why?
 - Resistance: Build trust carefully, observe who sabotages missions
 - Minions: Blend in, create doubt, subtly guide missions toward failure
-- Special roles: Use your knowledge wisely without exposing yourself"""
+- Special roles: Use your knowledge wisely without exposing yourself
+
+CRITICAL ANALYTICAL SKILLS:
+- Mission Pattern Analysis: Players appearing on MULTIPLE failed missions are HIGHLY suspicious
+  * If same players are on 2+ failed missions, they likely contain evil
+  * Cross-reference mission teams with your role knowledge
+- Vote Pattern Analysis: Who approves/rejects which teams reveals alignment
+  * Evil players often approve teams with other evil players
+  * Resistance players should be wary of repeatedly approved failing teams
+- Information Forcing: Rejecting teams strategically gains information
+  * Forcing new proposals reveals who else people trust
+  * WARNING: 5 consecutive rejections = INSTANT GAME OVER (evil wins immediately!)
+  * Resistance must be EXTREMELY careful about approaching 5 rejections
+  * Evil can use rejection pressure as their ultimate weapon
+- Logical Consistency: Track what players claim vs. what actually happened
+  * If someone says "everyone played success" but mission failed - they're lying or confused
+  * Players who misrepresent facts may be covering for evil
+
+AUTO-FAIL MECHANIC (GAME-ENDING):
+- If 5 team proposals are rejected in a row, THE GAME ENDS IMMEDIATELY - EVIL WINS
+- This is NOT just a failed mission - it's an INSTANT VICTORY for evil
+- Resistance perspective: 
+  * Use rejections 1-4 strategically (force better teams, gather information)
+  * The 5th attempt is CRITICAL - everyone must approve or lose instantly
+  * In practice, auto-fail rarely happens because resistance approves on 5th
+- Evil perspective: The REAL goal is getting evil ON the 5th team, not rejecting it
+  * Why? Because resistance (majority) will all approve the 5th team
+  * If evil rejects 5th team, they reveal themselves AND the team passes anyway
+  * Smart evil strategy: Use rejections 1-4 to force a 5th team WITH evil players
+- At 4 rejections (5th attempt): Resistance MUST approve, Evil SHOULD approve (to blend in)
+
+AVOID THESE COMMON MISTAKES:
+- Don't claim "team size" is strategic - it's determined by game rules (round number + player count)
+- Don't say "gather information" without USING the information you've gathered
+- Don't approve the same suspicious players repeatedly without strong justification
+- Don't contradict observable facts (e.g., mission results, who was on teams)
+- DON'T reject on the 5th attempt if you're Resistance (you lose the ENTIRE GAME)
+- DON'T propose the exact same team that was just rejected"""
 
     def _build_role_guidance(self, observation: AgentObservation) -> str:
         """Build role-specific strategic guidance."""
@@ -150,10 +187,22 @@ KEY STRATEGIES:
                     "- You know all evil players (except Mordred if present), "
                     "giving you immense strategic advantage",
                     "- PRIMARY GOAL: Guide resistance to victory WITHOUT revealing you're Merlin",
-                    "- Balance: Help your team while maintaining plausible deniability",
+                    "",
+                    "CRITICAL: You KNOW who is evil. USE THIS KNOWLEDGE STRATEGICALLY:",
+                    "- When evil players appear on missions that fail, you KNOW they caused it",
+                    "- Calculate: Can this mission succeed? (Does it have too many evil players?)",
+                    "- DON'T blindly approve teams with known evil 'to avoid suspicion'",
+                    "- DO reject suspicious teams, but frame it as 'gut feeling' or "
+                    "'wanting different combinations'",
+                    "- Pattern Recognition: If evil player X was on failed mission 1 "
+                    "and is proposed again - YOU KNOW they'll likely sabotage again",
+                    "- Balance: Sometimes approve 1 evil player on larger teams, "
+                    "but NEVER when it guarantees failure",
+                    "",
                     "- Be subtle: Suggest teams or votes that 'happen' to avoid evil players",
-                    "- Cover: Sometimes approve teams with evil to avoid suspicion",
-                    "- WARNING: If evil wins 3 missions, Assassin will analyze your behavior",
+                    "- Cover: Build plausible reasoning that doesn't rely on hidden knowledge",
+                    "- WARNING: If Resistance wins 3 missions, Assassin gets to guess "
+                    "your identity",
                     "- Think: How would a regular Resistance player act with no knowledge?",
                 ]
             )
@@ -161,7 +210,19 @@ KEY STRATEGIES:
             guidance_lines.extend(
                 [
                     "- You see Merlin (and Morgana if present), but can't distinguish them",
-                    "- PRIMARY GOAL: Identify the real Merlin and protect their identity",
+                    "- PRIMARY GOAL: Help Resistance win 3 missions first, "
+                    "identify real Merlin second",
+                    "- Secondary goal: Protect Merlin's identity so they survive "
+                    "assassination phase",
+                    "",
+                    "DEDUCTION STRATEGY:",
+                    "- Analyze WHO makes decisions that protect/expose your known "
+                    "Merlin candidates",
+                    "- If one candidate keeps making suspiciously good choices, "
+                    "they're likely real Merlin",
+                    "- Track which players vote against teams that later fail - "
+                    "these are likely good",
+                    "",
                     "- Watch: Which of your known players makes subtle, wise decisions?",
                     "- Support: Back Merlin's guidance without drawing attention to them",
                     "- Protect: Help Merlin deflect suspicion onto yourself or others",
@@ -173,6 +234,13 @@ KEY STRATEGIES:
                 [
                     "- You have no special knowledge, only observation and deduction",
                     "- PRIMARY GOAL: Identify evil players through behavioral analysis",
+                    "",
+                    "PATTERN ANALYSIS (YOUR ONLY TOOL):",
+                    "- YOU MUST DEDUCE from patterns since you have no special knowledge",
+                    "- Cross-reference: Which players appear on multiple failed missions?",
+                    "- Vote analysis: Who consistently approves teams that fail?",
+                    "- Behavior: Who deflects when questioned? Who provides vague reasoning?",
+                    "",
                     "- Watch: Who consistently ends up on failed missions?",
                     "- Patterns: Who votes in suspicious ways? Who deflects accusations?",
                     "- Trust: Look for players who demonstrate good judgment",
@@ -184,11 +252,28 @@ KEY STRATEGIES:
                 [
                     "- You know your fellow evil players, allowing coordination",
                     "- PRIMARY GOAL: Fail 3 missions while maintaining cover",
+                    "",
+                    "SUBTLETY AND COORDINATION:",
+                    "- DON'T always fail immediately - build trust first "
+                    "(success on round 1 if alone)",
+                    "- Coordinate implicitly: If 2+ evil on team, only ONE needs to fail",
+                    "- Create plausible deniability: 'I don't know why it failed, "
+                    "I played success!'",
+                    "- Force Merlin to reveal: Propose teams that Merlin must reject "
+                    "to protect Resistance",
+                    "",
+                    "5TH REJECTION STRATEGY (SUBTLE!):",
+                    "- If 5 teams rejected, evil wins - BUT you can't force this at 5th attempt",
+                    "- At 4 rejections: Resistance (majority) will ALL approve → team WILL pass",
+                    "- If you reject 5th attempt: You expose yourself AND achieve nothing",
+                    "- CORRECT strategy: Use rejections 1-4 to force a 5th team WITH evil on it",
+                    "- At 5th attempt: APPROVE like resistance would, fail mission if you're on it",
+                    "",
                     "- Blend in: Act like resistance, express 'concern' about evil players",
                     "- Coordinate: Ensure missions have enough evil players to fail",
-                    "- Strategic fails: Don't always fail immediately - build trust first",
-                    "- Force Merlin: Make Merlin reveal knowledge by creating no-win situations",
-                    "- Voting: Sometimes vote against evil teams to appear good",
+                    "- Strategic fails: Build trust before failing when it matters",
+                    "- Voting: Sometimes vote against evil teams to appear good "
+                    "(but not on 5th attempt!)",
                 ]
             )
         elif role == RoleType.ASSASSIN:
@@ -196,11 +281,24 @@ KEY STRATEGIES:
                 [
                     "- You're a Minion with a special power: killing Merlin if evil loses",
                     "- PRIMARY GOAL: Fail missions, but if evil loses, identify Merlin",
+                    "",
+                    "MERLIN HUNTING:",
                     "- During game: Note who makes suspiciously good decisions",
                     "- Force reveals: Create situations where Merlin must guide obviously",
                     "- Mental notes: Track who opposes teams with evil players",
                     "- Final choice: Merlin often tries to be subtle, not the loudest leader",
                     "- Remember: Your assassination guess can steal victory from defeat",
+                    "",
+                    "BUILD TRUST FIRST:",
+                    "- DON'T always fail immediately - success on round 1 if you're alone",
+                    "- Coordinate with other evil: If 2+ evil on team, only ONE needs to fail",
+                    "- Create plausible deniability for when you do fail missions",
+                    "",
+                    "5TH REJECTION STRATEGY:",
+                    "- At 4 rejections: Don't reject 5th team - you'll just expose yourself",
+                    "- Resistance (majority) will approve → team passes regardless of your vote",
+                    "- Better play: Approve to blend in, hunt for Merlin as planned",
+                    "- Use rejections 1-4 to pressure toward a 5th team with evil on it",
                 ]
             )
         elif role == RoleType.MORDRED:
@@ -212,6 +310,7 @@ KEY STRATEGIES:
                     "- Strategy: Build trust by appearing cautious about 'other' evil players",
                     "- Pressure: If on missions, you can fail while others suspect known evil",
                     "- Watch: Identify Merlin by who trusts you without apparent reason",
+                    "- 5th attempt: Approve to blend in (rejecting exposes you for no benefit)",
                 ]
             )
         elif role == RoleType.MORGANA:
@@ -223,6 +322,8 @@ KEY STRATEGIES:
                     "- Mirror: Act like Merlin would - subtle, helpful, but guide wrong",
                     "- Percival bait: Let Percival 'figure out' you're important",
                     "- Misdirection: If evil loses, you might draw the assassination",
+                    "- 5th attempt: Approve to maintain cover "
+                    "(team passes anyway, don't expose yourself)",
                 ]
             )
         elif role == RoleType.OBERON:
@@ -234,6 +335,7 @@ KEY STRATEGIES:
                     "- Aggressive: Accuse everyone, including evil, to maintain cover",
                     "- Opportunistic: Fail missions when you're on them",
                     "- Confusion: Your random accusations might actually help evil",
+                    "- 5th attempt: Approve like everyone else (rejecting just exposes you)",
                 ]
             )
 
@@ -311,6 +413,28 @@ KEY STRATEGIES:
                     f"({mission.fail_count} fails)"
                 )
 
+            # Mission pattern analysis
+            lines.append("")
+            lines.append("MISSION PATTERN ANALYSIS:")
+
+            # Track players on failed missions
+            failed_mission_players: dict[str, int] = {}
+            for mission in observation.mission_history:
+                if mission.result.value == "failure":
+                    for pid in mission.team:
+                        failed_mission_players[pid] = failed_mission_players.get(pid, 0) + 1
+
+            if failed_mission_players:
+                lines.append("Players appearing on multiple FAILED missions (HIGHLY SUSPICIOUS):")
+                for pid, count in sorted(failed_mission_players.items(), key=lambda x: -x[1]):
+                    if count > 1:
+                        player_name = observation.all_player_names[
+                            observation.all_player_ids.index(pid)
+                        ]
+                        lines.append(f"  - {player_name}: {count} failed missions")
+            else:
+                lines.append("  - No players have been on multiple failed missions yet")
+
         # Public statements from other players
         if observation.public_statements:
             lines.append("")
@@ -329,20 +453,80 @@ KEY STRATEGIES:
         game_context = self._build_game_context()
         role_guidance = self._build_role_guidance(observation)
         observation_context = self._build_observation_context(observation)
+
+        # Build previously rejected teams warning
+        rejected_teams_warning = ""
+        if observation.vote_history:
+            recent_rejected = [
+                v
+                for v in observation.vote_history[-5:]  # Last 5 votes
+                if v.round_number == observation.round_number and not v.approved
+            ]
+            if recent_rejected:
+                rejected_teams_warning = "\nPREVIOUSLY REJECTED TEAMS THIS ROUND:\n"
+                for vote in recent_rejected:
+                    team_names = [
+                        observation.all_player_names[observation.all_player_ids.index(pid)]
+                        for pid in vote.team
+                    ]
+                    rejected_teams_warning += (
+                        f"  - Attempt {vote.attempt_number}: {', '.join(team_names)}\n"
+                    )
+                rejected_teams_warning += (
+                    "\nYou MUST propose a DIFFERENT team composition. "
+                    "Don't repeat what was rejected!\n"
+                )
+
         prompt = f"""{game_context}
 {role_guidance}
 
 {observation_context}
-
+{rejected_teams_warning}
 DECISION: TEAM PROPOSAL
 You are the mission leader. You must propose a team of exactly \
 {observation.required_team_size} players.
+
+CRITICAL REQUIREMENT:
+- If teams have been rejected this round, you MUST propose a DIFFERENT combination
+- Don't propose the exact same players that were just rejected
+- Change at least one player to show you're adapting to feedback
 
 Consider:
 - Your alignment: Do you want this mission to succeed or fail?
 - Your knowledge: What do you know about other players?
 - Deception: How can you justify this team regardless of your true role?
 - Table dynamics: Who has been trusted/suspected so far?
+- Rejection pressure: {observation.consecutive_rejections} rejections so far \
+({5 - observation.consecutive_rejections} more = auto-fail)
+
+REASONING REQUIREMENTS:
+Private Reasoning:
+- Reference SPECIFIC patterns/facts from the game history
+- Explain how your role knowledge influences this decision
+- If changing from rejected teams, explain WHY you're making different choices
+- Consider: What does this choice reveal about me? How do I maintain cover?
+- Be SPECIFIC about players and their histories, not generic
+
+Public Reasoning:
+- Must sound DIFFERENT from other players (avoid copying phrases)
+- Should sound plausible for multiple roles (don't reveal your true role)
+- If teams were rejected, acknowledge you're trying a different approach
+- Keep it concise (1-2 sentences max) and unique to your perspective
+
+FACT CHECK YOUR REASONING:
+Before responding, verify:
+- Are you referencing actual game events, not made-up information?
+- Is this team DIFFERENT from previously rejected teams this round?
+- Do your conclusions follow logically from the evidence?
+- Are you using information you actually have access to?
+- Does your reasoning contradict any observable facts?
+
+Example mistakes to AVOID:
+- Proposing the EXACT same team that was just rejected
+- "Team size is strategic" - No, it's determined by rules
+- "Everyone played success" when mission failed - Impossible, someone failed
+- Generic "gather information" without analyzing information already gathered
+- Approving same suspicious players repeatedly without new reasoning
 
 Respond with a JSON object with BOTH private and public reasoning:
 {{
@@ -374,24 +558,121 @@ Your response:"""
 
     def vote_on_team(self, observation: AgentObservation) -> VoteDecision:
         """Generate a vote decision using Gemini."""
+        from .enums import Alignment
+
         game_context = self._build_game_context()
         role_guidance = self._build_role_guidance(observation)
         observation_context = self._build_observation_context(observation)
+
+        # Build urgency warning for 5th attempt
+        urgency_warning = ""
+        if observation.consecutive_rejections >= 4:
+            if observation.alignment == Alignment.RESISTANCE:
+                urgency_warning = """
+!!!!! CRITICAL GAME-ENDING DECISION !!!!!
+This is the 5th consecutive team proposal. If this team is rejected, THE GAME ENDS
+IMMEDIATELY and EVIL WINS. This is not just a failed mission - it's the END OF THE
+ENTIRE GAME. As a RESISTANCE player, you MUST APPROVE this team or you lose everything.
+Any team is better than losing the entire game.
+APPROVE OR YOU LOSE EVERYTHING.
+"""
+            else:
+                urgency_warning = """
+!!!!! CRITICAL 5TH ATTEMPT - STRATEGIC TRAP !!!!!
+This is the 5th consecutive team proposal. You might think: "Reject and evil wins!"
+BUT WAIT - Think about the math:
+- ALL resistance players will approve (or lose the game)
+- Resistance has the MAJORITY
+- This team WILL PASS no matter how you vote
+- If you reject, you reveal you're evil for NO BENEFIT
+
+CORRECT EVIL STRATEGY:
+- APPROVE this team (like resistance would)
+- Your rejections gained NOTHING except exposing your identity
+- The only win was getting evil players ON this team (did you succeed?)
+- Blend in now, fail the mission later if you're on it
+
+DO NOT REVEAL YOURSELF BY REJECTING - THE TEAM WILL PASS ANYWAY.
+"""
+
         prompt = f"""{game_context}
 {role_guidance}
 
 {observation_context}
-
+{urgency_warning}
 DECISION: TEAM VOTE
 You must vote to APPROVE or REJECT the proposed team.
+
+CURRENT SITUATION:
+- Consecutive rejections so far: {observation.consecutive_rejections}
+- Rejections until GAME OVER: {5 - observation.consecutive_rejections}
+- 5th rejection consequence: GAME ENDS - EVIL WINS IMMEDIATELY (not just a mission)
 
 Consider:
 - Your alignment: Does this team help or hurt your side?
 - Your knowledge: Do you recognize any evil/good players on the team?
 - Strategic voting: Sometimes voting against your interest can provide cover
-- Rejection consequences: {5 - observation.consecutive_rejections} more rejections \
-= automatic mission failure
 - Patterns: Avoid voting in ways that obviously reveal your role
+
+STRATEGIC VOTING CONSIDERATIONS:
+- Approving: Means you trust this team will advance your side's goals
+- Rejecting: Forces a new proposal, revealing who else the leader trusts
+  * Use rejection to: gather information, prevent bad teams, apply pressure
+  * CRITICAL: 5 consecutive rejections = GAME OVER, EVIL WINS IMMEDIATELY
+
+ALIGNMENT-SPECIFIC STRATEGY:
+If you are RESISTANCE:
+- Rejections 1-4: Use strategically to force better team compositions
+  * Reject teams with suspicious players or patterns
+  * Force information by seeing who else leaders trust
+  * The auto-fail won't happen because everyone approves on 5th attempt
+- At 4 rejections (5th attempt): You MUST approve or you LOSE THE ENTIRE GAME
+  * This is the ONLY truly dangerous rejection
+  * Any team is better than instant defeat
+- Strategic approach: Be selective on attempts 1-4, always approve on attempt 5
+
+If you are EVIL:
+- Early rejections (0-3): Create pressure, force bad teams, approach 5th attempt
+- At 4 rejections: Your goal was to get evil ON the 5th team, NOT to reject it
+  * If you reject: You reveal yourself AND the team passes anyway (resistance has majority)
+  * Correct play: APPROVE like everyone else, blend in, fail mission if you're on it
+  * The 5th rejection trap: Rejecting exposes you for zero benefit
+- Strategic focus: Use rejections 1-4 to pressure toward a 5th team WITH evil players
+- At 5th attempt: Vote approve to maintain cover (the team will pass regardless)
+
+WHEN TO REJECT (if Resistance):
+- Team has too many known evil players (and it's NOT the 5th attempt)
+- You have knowledge (e.g., Merlin) that team will certainly fail (NOT 5th attempt)
+- NEVER EVER on 5th attempt - rejecting = instant game loss
+
+WHEN TO APPROVE (if Resistance):
+- It's the 5th attempt (you have no choice - must approve or lose)
+- Team avoids repeatedly suspicious players
+- You're on the team and can ensure success
+
+WHEN TO APPROVE (if Evil):
+- It's the 5th attempt (rejecting reveals you for no benefit - team passes anyway)
+- Need to build trust for later betrayals
+- Team has good chance to fail anyway
+
+REASONING REQUIREMENTS:
+Private Reasoning:
+- Reference SPECIFIC patterns/facts from the game history
+- Explain how your role knowledge influences this decision
+- Consider: What does this choice reveal about me? How do I maintain cover?
+- Be SPECIFIC about players and their histories, not generic
+
+Public Reasoning:
+- Must sound DIFFERENT from other players (avoid copying phrases)
+- Should sound plausible for multiple roles (don't reveal your true role)
+- Can include strategic misdirection or partial truths
+- Keep it concise (1-2 sentences max) and unique to your perspective
+
+FACT CHECK YOUR REASONING:
+Before responding, verify:
+- Are you referencing actual game events, not made-up information?
+- Do your conclusions follow logically from the evidence?
+- Does your reasoning contradict any observable facts?
 
 Respond with a JSON object with BOTH private and public reasoning:
 {{
@@ -437,6 +718,25 @@ Consider (if you're a Minion):
 - Mission criticality: Is this a crucial mission to fail?
 - Team composition: Are there other minions who might fail?
 - Cover strategy: Sometimes playing success builds trust for later betrayal
+
+REASONING REQUIREMENTS:
+Private Reasoning:
+- Reference SPECIFIC patterns/facts from the game history
+- Explain your strategic choice (if evil: why fail or success now?)
+- Consider: What does this reveal about me?
+- Be SPECIFIC about the situation, not generic
+
+Public Reasoning:
+- Must sound DIFFERENT from other players (avoid copying phrases)
+- Should sound plausible for multiple roles
+- Explain your contribution to the mission (can be misleading if evil)
+- Keep it concise (1-2 sentences max) and unique to your perspective
+
+FACT CHECK YOUR REASONING:
+Before responding, verify:
+- Are you referencing actual game events?
+- Does your reasoning make logical sense?
+- If you claim you played success but mission failed, is that plausible?
 
 Respond with a JSON object with BOTH private and public reasoning:
 {{
@@ -493,6 +793,24 @@ ANALYSIS APPROACH:
 - Consider knowledge: Who acted like they had information?
 - Avoid obvious targets: Sometimes the loudest "leader" isn't Merlin
 - Look for subtle guidance: Merlin must hide while helping
+
+REASONING REQUIREMENTS:
+Private Reasoning:
+- Analyze SPECIFIC voting and team patterns from each player
+- Reference concrete examples of suspicious behavior
+- Explain your deduction process step by step
+- Consider alternative candidates and why you ruled them out
+
+Public Reasoning:
+- Explain your choice to other players
+- Can be honest analysis or misdirection
+- Keep it concise (1-2 sentences)
+
+FACT CHECK YOUR REASONING:
+Before responding, verify:
+- Are you analyzing actual game events and votes?
+- Does your analysis follow logical deduction?
+- Have you considered all Resistance players, not just vocal ones?
 
 Respond with a JSON object with BOTH private and public reasoning:
 {{

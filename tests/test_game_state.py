@@ -224,6 +224,7 @@ def test_vote_approval_moves_to_mission_phase() -> None:
 
 
 def test_auto_fail_after_five_rejections_awards_minion_point() -> None:
+    """Test that 5 consecutive rejections ends the game immediately with evil victory."""
     state = _default_state(5)
     record = None
     for _ in range(5):
@@ -238,8 +239,11 @@ def test_auto_fail_after_five_rejections_awards_minion_point() -> None:
     final_mission = state.missions[-1]
     assert final_mission.auto_fail
     assert final_mission.result is MissionResult.FAILURE
-    assert state.minion_score == 1
-    assert state.round_number == 2
+    # 5 consecutive rejections = immediate game over
+    assert state.phase == GamePhase.GAME_OVER
+    assert state.final_winner == Alignment.MINION
+    # Should NOT advance to next round or increment score - game is over
+    assert state.round_number == 1
 
 
 def test_mission_success_increments_resistance_and_advances_round() -> None:
