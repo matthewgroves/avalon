@@ -8,6 +8,7 @@ from enum import Enum
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 from .config import GameConfig
+from .discussion import DiscussionPhase, DiscussionRound, DiscussionStatement
 from .enums import Alignment
 from .events import EventLog, GameEventType
 from .exceptions import ConfigurationError, InvalidActionError
@@ -128,6 +129,8 @@ class GameState:
     final_winner: Optional[Alignment] = None
     vote_history: list[VoteRecord] = field(default_factory=list, repr=False)
     mission_history: list[MissionRecord] = field(default_factory=list, repr=False)
+    discussion_history: list[DiscussionRound] = field(default_factory=list, repr=False)
+    current_discussion: Optional[DiscussionRound] = None
     seed: Optional[int] = None
     event_log: Optional[EventLog] = field(default=None, repr=False)
     _players_by_id: Dict[PlayerId, Player] = field(init=False, repr=False, default_factory=dict)
@@ -198,6 +201,74 @@ class GameState:
         """Return the resolved assassination record, if any."""
 
         return self.assassination_record
+
+    @property
+    def discussions(self) -> Tuple[DiscussionRound, ...]:
+        """Return an immutable snapshot of all completed discussion rounds."""
+        return tuple(self.discussion_history)
+
+    @property
+    def all_discussion_statements(self) -> Tuple[DiscussionStatement, ...]:
+        """Return all discussion statements from all rounds."""
+        statements: list[DiscussionStatement] = []
+        for discussion_round in self.discussion_history:
+            statements.extend(discussion_round.statements)
+        if self.current_discussion:
+            statements.extend(self.current_discussion.statements)
+        return tuple(statements)
+
+    def start_discussion(self, phase: DiscussionPhase) -> None:
+        """Start a new discussion round for the current game state."""
+        if self.current_discussion is not None:
+            raise InvalidActionError("Cannot start discussion: a discussion is already in progress")
+
+        self.current_discussion = DiscussionRound(
+            round_number=self.round_number,
+            attempt_number=self.attempt_number,
+            phase=phase,
+        )
+
+    def add_discussion_statement(self, statement: DiscussionStatement) -> None:
+        """Add a statement to the current discussion round."""
+        if self.current_discussion is None:
+            raise InvalidActionError("No discussion in progress")
+
+        # Validate the statement matches the current discussion context
+        if statement.round_number != self.current_discussion.round_number:
+            raise InvalidActionError(
+                f"Statement round {statement.round_number} doesn't match "
+                f"current discussion round {self.current_discussion.round_number}"
+            )
+        if statement.attempt_number != self.current_discussion.attempt_number:
+            raise InvalidActionError(
+                f"Statement attempt {statement.attempt_number} doesn't match "
+                f"current discussion attempt {self.current_discussion.attempt_number}"
+            )
+        if statement.phase != self.current_discussion.phase:
+            raise InvalidActionError(
+                f"Statement phase {statement.phase} doesn't match "
+                f"current discussion phase {self.current_discussion.phase}"
+            )
+
+        self.current_discussion.add_statement(statement)
+        self._record_event(
+            GameEventType.DISCUSSION_STATEMENT,
+            {
+                "speaker_id": statement.speaker_id,
+                "message": statement.message,
+                "round_number": statement.round_number,
+                "attempt_number": statement.attempt_number,
+                "phase": statement.phase.value,
+            },
+        )
+
+    def end_discussion(self) -> None:
+        """End the current discussion round and archive it."""
+        if self.current_discussion is None:
+            raise InvalidActionError("No discussion to end")
+
+        self.discussion_history.append(self.current_discussion)
+        self.current_discussion = None
 
     def _record_event(
         self,

@@ -215,9 +215,9 @@
 	- Test mixed human/agent games.
 
 ### Phase 12: Agent Communication & Discussion
-- [ ] **Discussion Data Model** 
-	- [ ] Create `DiscussionStatement` dataclass capturing speaker, message, timestamp, round/phase context.
-	- [ ] Add `DiscussionTurn` dataclass for structured turn-taking (speaker, statement, responses).
+- [x] **Discussion Data Model** ✅
+	- [x] Create `DiscussionStatement` dataclass capturing speaker, message, timestamp, round/phase context.
+	- [x] Add `DiscussionRound` dataclass for structured turn-taking and statement tracking.
 	- [ ] Extend `GameState` to track discussion history per phase.
 	- [ ] Add discussion statements to `AgentObservation` for context in decision-making.
 - [ ] **Discussion Configuration**

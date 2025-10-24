@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, Tuple
 
+from .discussion import DiscussionStatement
 from .enums import Alignment
 from .game_state import GamePhase, MissionSummary, VoteRecord
 from .knowledge import KnowledgePacket
@@ -61,6 +62,9 @@ class AgentObservation:
     # Public reasoning from other players' decisions
     # Format: List of (player_id, decision_type, public_reasoning) tuples
     public_statements: Tuple[Tuple[PlayerId, str, str], ...] = ()
+
+    # Discussion statements from all players (public knowledge)
+    discussion_statements: Tuple[DiscussionStatement, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

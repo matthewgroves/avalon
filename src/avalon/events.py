@@ -22,6 +22,7 @@ class GameEventType(str, Enum):
     MISSION_AUTO_FAILED = "mission_auto_failed"
     ASSASSINATION_RESOLVED = "assassination_resolved"
     GAME_COMPLETED = "game_completed"
+    DISCUSSION_STATEMENT = "discussion_statement"
 
 
 class EventVisibility(str, Enum):
