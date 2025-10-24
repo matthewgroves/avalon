@@ -8,11 +8,13 @@ from typing import TYPE_CHECKING, Protocol
 from .agents import (
     AgentObservation,
     AssassinationGuess,
+    DiscussionResponse,
     MissionAction,
     TeamProposal,
     VoteDecision,
     build_observation,
 )
+from .discussion import DiscussionPhase
 from .game_state import GameState
 from .players import PlayerId
 
@@ -27,6 +29,9 @@ class LLMClient(Protocol):
     def vote_on_team(self, observation: AgentObservation) -> VoteDecision: ...
     def execute_mission(self, observation: AgentObservation) -> MissionAction: ...
     def guess_merlin(self, observation: AgentObservation) -> AssassinationGuess: ...
+    def make_statement(
+        self, observation: AgentObservation, phase: DiscussionPhase
+    ) -> DiscussionResponse: ...
 
 
 @dataclass
@@ -115,6 +120,22 @@ class AgentManager:
         """
         observation = self._build_observation(player_id, state)
         return self.client.guess_merlin(observation)
+
+    def make_statement(
+        self, player_id: PlayerId, state: GameState, phase: DiscussionPhase
+    ) -> DiscussionResponse:
+        """Get discussion statement from agent.
+
+        Args:
+            player_id: ID of the agent making the statement.
+            state: Current game state.
+            phase: Which discussion phase this is.
+
+        Returns:
+            DiscussionResponse from the LLM client.
+        """
+        observation = self._build_observation(player_id, state)
+        return self.client.make_statement(observation, phase)
 
     def _build_observation(self, player_id: PlayerId, state: GameState) -> AgentObservation:
         """Build an observation for an agent player."""

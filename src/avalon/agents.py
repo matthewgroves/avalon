@@ -103,6 +103,14 @@ class AssassinationGuess:
     public_reasoning: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class DiscussionResponse:
+    """Agent's discussion statement response."""
+
+    message: str  # The public statement to make
+    true_reasoning: str = ""  # Private reasoning for making this statement
+
+
 class AgentDecisionMaker(Protocol):
     """Protocol for agent players that make game decisions.
 
@@ -151,6 +159,18 @@ class AgentDecisionMaker(Protocol):
 
         Returns:
             AssassinationGuess with target player ID and optional reasoning.
+        """
+        ...
+
+    def make_statement(self, observation: AgentObservation, phase: str) -> DiscussionResponse:
+        """Generate a discussion statement during a discussion phase.
+
+        Args:
+            observation: Current game state including discussion history.
+            phase: The discussion phase (PRE_PROPOSAL, PRE_VOTE, etc.)
+
+        Returns:
+            DiscussionResponse with the statement message and optional reasoning.
         """
         ...
 
@@ -213,6 +233,7 @@ def build_observation(
         required_team_size=required_team_size,
         required_fail_count=required_fail_count,
         public_statements=public_statements,
+        discussion_statements=game_state.all_discussion_statements,
     )
 
 
@@ -220,6 +241,7 @@ __all__ = [
     "AgentDecisionMaker",
     "AgentObservation",
     "AssassinationGuess",
+    "DiscussionResponse",
     "MissionAction",
     "TeamProposal",
     "VoteDecision",

@@ -2,7 +2,7 @@
 # This uses OpenRouter's API to avoid Gemini rate limits
 
 players:
-  - name: You
+  - name: Matt
     type: human
   
   - name: Alice

@@ -8,10 +8,12 @@ from typing import Callable
 from .agents import (
     AgentObservation,
     AssassinationGuess,
+    DiscussionResponse,
     MissionAction,
     TeamProposal,
     VoteDecision,
 )
+from .discussion import DiscussionPhase
 
 
 @dataclass
@@ -109,6 +111,13 @@ class MockLLMClient:
             true_reasoning="Mock default guess",
             public_reasoning="They seemed suspicious",
         )
+
+    def make_statement(
+        self, observation: AgentObservation, phase: DiscussionPhase
+    ) -> DiscussionResponse:
+        """Return a simple discussion statement (agents pass by default in mock)."""
+        # By default, mock agents pass (empty message)
+        return DiscussionResponse(message="", true_reasoning="Mock agent passes")
 
 
 def create_simple_agent_strategy(

@@ -687,9 +687,30 @@ def _handle_discussion(
 
             # Check if this is an agent player
             if agent_manager and agent_manager.is_agent(player.player_id, state):
-                # TODO: Will be implemented in agent discussion interface
-                msg = f"  {player.display_name}: [Agent discussion not yet implemented]"
-                _write(backend, log, msg)
+                # Get agent to make a statement
+                try:
+                    response = agent_manager.make_statement(player.player_id, state, phase)
+
+                    # Agent chooses to pass if message is empty
+                    if not response.message or response.message.strip() == "":
+                        _write(backend, log, f"  {player.display_name} passes.")
+                        continue
+
+                    # Create and add statement
+                    statement = DiscussionStatement(
+                        speaker_id=player.player_id,
+                        message=response.message,
+                        round_number=state.round_number,
+                        attempt_number=state.attempt_number,
+                        phase=phase,
+                    )
+                    state.add_discussion_statement(statement)
+                    _write(backend, log, f'  {player.display_name}: "{response.message}"')
+                    any_statements = True
+                except Exception as e:
+                    _write(
+                        backend, log, f"  {player.display_name}: [Error generating statement: {e}]"
+                    )
                 continue
             # Human player input
             prompt = f"{player.display_name}, make a statement (or 'pass'): \n"

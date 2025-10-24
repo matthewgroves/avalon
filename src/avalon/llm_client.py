@@ -15,10 +15,12 @@ from google.api_core import exceptions as google_exceptions
 from .agents import (
     AgentObservation,
     AssassinationGuess,
+    DiscussionResponse,
     MissionAction,
     TeamProposal,
     VoteDecision,
 )
+from .discussion import DiscussionPhase
 from .enums import Alignment, RoleType
 from .exceptions import ConfigurationError
 
@@ -40,6 +42,10 @@ class LLMClient(Protocol):
 
     def guess_merlin(self, observation: AgentObservation) -> AssassinationGuess:
         """Generate an assassination guess based on game observation."""
+        ...
+
+    def make_statement(self, observation: AgentObservation, phase: str) -> DiscussionResponse:
+        """Generate a discussion statement based on game observation."""
         ...
 
 
@@ -477,11 +483,32 @@ True Reasoning:
 - Consider: What does this choice reveal about me? How do I maintain cover?
 - Be SPECIFIC about players and their histories, not generic
 
-Public Reasoning:
+Public Reasoning (VISIBLE TO ALL PLAYERS):
 - Must sound DIFFERENT from other players (avoid copying phrases)
 - Should sound plausible for multiple roles (don't reveal your true role)
 - If teams were rejected, acknowledge you're trying a different approach
 - Keep it concise (1-2 sentences max) and unique to your perspective
+
+!!!!! CRITICAL - PUBLIC REASONING SECURITY !!!!!
+NEVER REVEAL YOUR ALIGNMENT IN PUBLIC REASONING:
+- WRONG: "I'm evil so I'll..."
+- WRONG: "...avoid tipping off the group that I'm evil"
+- WRONG: "As a minion, I need to..."
+- WRONG: "I'm resistance so I'll..."
+- CORRECT: "This team looks balanced" (neutral, reveals nothing)
+- CORRECT: "I trust Alice based on her voting pattern" (deduction, not role reveal)
+- CORRECT: "We should test this group" (strategic, non-revealing)
+
+If you are EVIL:
+- Claim to be good OR stay neutral - NEVER admit being evil
+- You can lie about suspicions, trust, observations - anything except your role
+- Example GOOD evil public reasoning: "I think Bob is trustworthy based on mission 1"
+- Example BAD evil public reasoning: "I'm playing success to hide that I'm evil"
+
+If you are RESISTANCE:
+- You can claim to be good (it's true!) or stay neutral
+- Don't reveal special knowledge (if Merlin, don't reveal you know who's evil)
+- Example: "I approve because this team has proven players" (safe, reveals nothing)
 
 FACT CHECK YOUR REASONING:
 Before responding, verify:
@@ -519,6 +546,27 @@ Your response:"""
             # Fallback: take first N players if invalid
             team = observation.all_player_ids[: observation.required_team_size]
             true_reasoning = f"Invalid team size, using fallback. Original: {true_reasoning}"
+
+        # CRITICAL: Detect if evil player revealed their alignment in public reasoning
+        from .enums import Alignment
+
+        if observation.alignment == Alignment.MINION:
+            dangerous_phrases = [
+                "evil",
+                "minion",
+                "mordred",
+                "assassin",
+                "i'm on the evil team",
+                "hide that i'm",
+                "avoid tipping",
+                "tipping off",
+            ]
+            public_lower = public_reasoning.lower()
+            for phrase in dangerous_phrases:
+                if phrase in public_lower:
+                    public_reasoning = "This team composition looks balanced and worth testing."
+                    true_reasoning += " [WARNING: Removed dangerous phrase from public reasoning]"
+                    break
 
         return TeamProposal(
             team=team,
@@ -637,11 +685,22 @@ True Reasoning:
 - Consider: What does this choice reveal about me? How do I maintain cover?
 - Be SPECIFIC about players and their histories, not generic
 
-Public Reasoning:
+Public Reasoning (VISIBLE TO ALL PLAYERS):
 - Must sound DIFFERENT from other players (avoid copying phrases)
 - Should sound plausible for multiple roles (don't reveal your true role)
 - Can include strategic misdirection or partial truths
 - Keep it concise (1-2 sentences max) and unique to your perspective
+
+!!!!! CRITICAL - PUBLIC REASONING SECURITY !!!!!
+NEVER REVEAL YOUR ALIGNMENT IN PUBLIC REASONING:
+- WRONG: "I'm evil so I'll..."
+- WRONG: "...to hide that I'm a minion"
+- WRONG: "As resistance, I must..."
+- CORRECT: "This team looks trustworthy" (neutral)
+- CORRECT: "I'm suspicious of Charlie" (deduction-based)
+
+If EVIL: Always claim to be good or stay neutral - NEVER admit being evil
+If RESISTANCE: You can claim to be good or stay neutral
 
 FACT CHECK YOUR REASONING:
 Before responding, verify:
@@ -665,6 +724,25 @@ Your response:"""
         approve = bool(parsed.get("approve", False))
         true_reasoning = parsed.get("true_reasoning", "")
         public_reasoning = parsed.get("public_reasoning", "")
+
+        # CRITICAL: Detect if evil player revealed their alignment in public reasoning
+        if observation.alignment == Alignment.MINION:
+            dangerous_phrases = [
+                "evil",
+                "minion",
+                "mordred",
+                "assassin",
+                "i'm on the evil team",
+                "hide that i'm",
+                "avoid tipping",
+                "tipping off",
+            ]
+            public_lower = public_reasoning.lower()
+            for phrase in dangerous_phrases:
+                if phrase in public_lower:
+                    public_reasoning = "This team looks balanced and worth testing."
+                    true_reasoning += " [WARNING: Removed dangerous phrase from public reasoning]"
+                    break
 
         return VoteDecision(
             approve=approve,
@@ -702,11 +780,22 @@ True Reasoning:
 - Consider: What does this reveal about me?
 - Be SPECIFIC about the situation, not generic
 
-Public Reasoning:
+Public Reasoning (VISIBLE TO ALL PLAYERS):
 - Must sound DIFFERENT from other players (avoid copying phrases)
 - Should sound plausible for multiple roles
 - Explain your contribution to the mission (can be misleading if evil)
 - Keep it concise (1-2 sentences max) and unique to your perspective
+
+!!!!! CRITICAL - PUBLIC REASONING SECURITY !!!!!
+NEVER REVEAL YOUR ALIGNMENT IN PUBLIC REASONING:
+- WRONG: "I'm choosing SUCCESS to hide that I'm evil"
+- WRONG: "...avoid tipping off the group that I'm a minion"
+- WRONG: "As a resistance player, I must..."
+- CORRECT: "I'm playing SUCCESS to support the team" (neutral)
+- CORRECT: "I trust this team will succeed" (doesn't reveal role)
+
+If EVIL: Claim you're supporting the mission OR express caution - NEVER say you're evil
+If RESISTANCE: You can say you're supporting the mission
 
 FACT CHECK YOUR REASONING:
 Before responding, verify:
@@ -716,10 +805,25 @@ Before responding, verify:
 
 Respond with a JSON object with BOTH true and public reasoning:
 {{
-  "success": true,
+  "success": true,    // true = play SUCCESS card, false = play FAIL card
   "true_reasoning": "your actual strategic thinking (only you see this)",
   "public_reasoning": "what you'll tell other players (they see this)"
 }}
+
+IMPORTANT JSON RESPONSE RULES:
+- "success": true means you play a SUCCESS card
+- "success": false means you play a FAIL card
+- If you are RESISTANCE: You MUST use "success": true (you cannot fail)
+- If you are EVIL and want to FAIL the mission: Use "success": false
+- If you are EVIL and want to play SUCCESS (for cover): Use "success": true
+
+Examples:
+- Evil sabotaging: {{"success": false, "true_reasoning": "I'm failing to...",
+  "public_reasoning": "Supporting team"}}
+- Evil blending: {{"success": true, "true_reasoning": "Build trust",
+  "public_reasoning": "I trust this team"}}
+- Resistance: {{"success": true, "true_reasoning": "Must play success",
+  "public_reasoning": "Supporting mission"}}
 
 Your response:"""
 
@@ -737,6 +841,30 @@ Your response:"""
             success = True
             if not parsed.get("success", True):
                 true_reasoning += " [Forced to SUCCESS - Resistance player]"
+
+        # CRITICAL: Detect if evil player revealed their alignment in public reasoning
+        if observation.alignment == Alignment.MINION:
+            dangerous_phrases = [
+                "evil",
+                "minion",
+                "mordred",
+                "assassin",
+                "bad",
+                "i'm on the evil team",
+                "hide that i'm",
+                "avoid tipping",
+                "tipping off",
+                "that i'm a",
+            ]
+            public_lower = public_reasoning.lower()
+            for phrase in dangerous_phrases:
+                if phrase in public_lower:
+                    # Remove the dangerous phrase and replace with safe alternative
+                    public_reasoning = "I'm supporting this decision to help the team succeed."
+                    true_reasoning += (
+                        f" [WARNING: Removed dangerous phrase '{phrase}' from public reasoning]"
+                    )
+                    break
 
         return MissionAction(
             success=success,
@@ -814,6 +942,211 @@ Your response:"""
             true_reasoning=true_reasoning,
             public_reasoning=public_reasoning,
         )
+
+    def make_statement(
+        self, observation: AgentObservation, phase: DiscussionPhase
+    ) -> DiscussionResponse:
+        """Generate a discussion statement using the LLM."""
+        game_context = self._build_game_context()
+        role_guidance = self._build_role_guidance(observation)
+        observation_context = self._build_observation_context(observation)
+
+        # Build discussion context
+        discussion_context = self._build_discussion_context(observation, phase)
+
+        # Phase-specific prompts
+        mission_result = "UNKNOWN"
+        if phase == DiscussionPhase.POST_MISSION_RESULT and observation.mission_history:
+            last_mission = observation.mission_history[-1]
+            mission_result = "SUCCESS" if last_mission.result.name == "SUCCESS" else "FAILED"
+
+        # Get leader name for clarity
+        leader_name = observation.all_player_names[
+            observation.all_player_ids.index(observation.current_leader_id)
+        ]
+
+        # Build phase-specific guidance with proper team context
+        if phase == DiscussionPhase.PRE_PROPOSAL:
+            phase_guidance_text = (
+                f"This is BEFORE the team proposal. NO TEAM HAS BEEN PROPOSED YET. "
+                f"The leader ({leader_name}) will propose after this discussion. "
+                f"You can suggest who you think would be good team members, but "
+                f"DO NOT say 'I propose' unless you ARE {leader_name}."
+            )
+        elif phase == DiscussionPhase.PRE_VOTE:
+            team_names = (
+                [
+                    observation.all_player_names[observation.all_player_ids.index(pid)]
+                    for pid in observation.current_team
+                ]
+                if observation.current_team
+                else []
+            )
+            team_display = ", ".join(team_names) if team_names else "UNKNOWN"
+            phase_guidance_text = (
+                f"A team HAS been proposed by {leader_name}: {team_display}. "
+                f"This is the ACTUAL team on the table. Discuss whether you trust "
+                f"THIS SPECIFIC team or have concerns about these specific members."
+            )
+        elif phase == DiscussionPhase.POST_MISSION_RESULT:
+            phase_guidance_text = (
+                f"Mission result: {mission_result}. Discuss what this reveals "
+                f"about team members or who might be evil."
+            )
+        elif phase == DiscussionPhase.PRE_ASSASSINATION:
+            phase_guidance_text = (
+                "Evil has lost, but the Assassin can win by killing Merlin. "
+                "Discuss who you think Merlin might be (or deflect if you ARE Merlin)."
+            )
+        else:
+            phase_guidance_text = "Discuss the current game state."
+
+        prompt = f"""{game_context}
+{role_guidance}
+
+{observation_context}
+
+{discussion_context}
+
+CRITICAL DISCUSSION CONTEXT:
+DISCUSSION PHASE: {phase.value}
+{phase_guidance_text}
+
+!!!!! WHO YOU ARE (READ CAREFULLY) !!!!!
+YOU are {observation.display_name} (player_id: {observation.player_id})
+
+CRITICAL IDENTITY RULES:
+1. When talking about YOURSELF, use "I", "me", "my" - NEVER say "{observation.display_name}"
+2. When talking about OTHER players, use their names: {', '.join(
+    [n for n in observation.all_player_names if n != observation.display_name]
+)}
+3. DO NOT say things like "{observation.display_name} should..." or
+   "I'd like to hear {observation.display_name}'s take"
+4. If you want to talk about yourself, say "I" not your name
+5. You are NOT {leader_name} unless your name is literally {leader_name}
+
+EXAMPLES OF CORRECT vs WRONG:
+- WRONG: "{observation.display_name} is concerned about Alice"
+- CORRECT: "I'm concerned about Alice"
+- WRONG: "I want to hear {observation.display_name}'s opinion"
+- CORRECT: "I want to hear Bob's opinion" (talking about another player)
+- WRONG: "{observation.display_name} will watch carefully"
+- CORRECT: "I'll watch carefully"
+
+CURRENT GAME MECHANICS:
+- The LEADER this round is: {leader_name} ({observation.current_leader_id})
+- Only the LEADER proposes teams - other players discuss but don't propose
+- Required team size for this mission: {observation.required_team_size} players
+- DO NOT propose teams unless you ARE the leader ({leader_name})
+- DO NOT suggest team sizes different from {observation.required_team_size}
+
+CRITICAL - READ THE ACTUAL GAME STATE:
+- If discussion is PRE_PROPOSAL: NO team has been proposed yet, only suggestions
+- If discussion is PRE_VOTE: A team HAS been proposed, it's listed above in the game state
+- DO NOT make up team compositions that aren't shown in the game state
+- DO NOT refer to teams that haven't been proposed yet
+- ALWAYS refer to players by their ACTUAL names from the player list above
+
+ROLE-SPECIFIC DISCUSSION GUIDANCE:
+{(
+    "- You are Merlin. You know who the evil players are, but MUST NOT reveal "
+    "this directly or you'll be assassinated."
+) if observation.role == RoleType.MERLIN else ""}
+{(
+    "- You are a Minion of Mordred. Consider subtle misdirection, defending "
+    "evil teammates, or sowing confusion."
+) if observation.role in [
+    RoleType.MINION_OF_MORDRED, RoleType.ASSASSIN, RoleType.MORGANA,
+    RoleType.MORDRED, RoleType.OBERON
+] else ""}
+{(
+    "- You are a Loyal Servant. Use deduction and social reads to identify "
+    "suspicious behavior."
+) if observation.role in [RoleType.LOYAL_SERVANT, RoleType.PERCIVAL] else ""}
+{(
+    "- You are Percival. You know Merlin and Morgana (but not which is which). "
+    "Protect Merlin without revealing them."
+) if observation.role == RoleType.PERCIVAL else ""}
+
+DISCUSSION STRATEGY:
+- Be concise (1-3 sentences)
+- Reference specific game events (votes, mission results, proposals)
+- Share suspicions about OTHER players (not yourself!), defend yourself, or respond to others
+- Consider what information you can reveal without exposing your role
+- Evil players: Blend in, defend teammates subtly, cast doubt on good players
+- Good players: Share reasoning, ask questions, build trust
+- Remember: You discuss, the leader ({leader_name}) proposes
+
+REASONING REQUIREMENTS:
+True Reasoning:
+- Your actual strategic thinking (only you see this)
+- What information you're using (including hidden role knowledge)
+- Why you're saying what you're saying
+
+Public Message:
+- What other players will see and hear
+- Can be honest analysis or strategic misdirection
+- Should sound natural and conversational
+- Use first person ("I think...", "I trust...", "I'm concerned about...")
+
+FACT CHECK YOUR STATEMENT:
+Before responding, verify:
+- Are you using "I/me/my" when talking about yourself?
+  NOT saying "{observation.display_name}"?
+- If you mention {observation.display_name}, you are talking about yourself
+  in 3rd person - WRONG!
+- Are you speaking as YOURSELF, not referring to yourself as another player?
+- If PRE_PROPOSAL: Are you making suggestions, not proposing?
+  (only {leader_name} proposes)
+- If PRE_VOTE: Are you referring to the ACTUAL proposed team shown
+  in the game state?
+- Are you using player names that ACTUALLY EXIST in the roster above?
+- Does your statement reference actual game events, not made-up information?
+- Are you being appropriately subtle about your role knowledge?
+- Read your message: does it contain your own name ({observation.display_name})?
+  If YES, rewrite using "I"!
+- Is your message consistent with what you've said before?
+
+Respond with a JSON object:
+{{
+  "message": "What you'll say to all players (keep concise)",
+  "true_reasoning": "Your actual strategic thinking (only you see this)"
+}}
+
+Your response:"""
+
+        response_text = self._generate_text(prompt)
+        parsed = self._parse_json_response(response_text)
+
+        message = parsed.get("message", "I'll pass for now.")
+        true_reasoning = parsed.get("true_reasoning", "")
+
+        return DiscussionResponse(message=message, true_reasoning=true_reasoning)
+
+    def _build_discussion_context(
+        self, observation: AgentObservation, phase: DiscussionPhase
+    ) -> str:
+        """Build context about the current discussion including recent statements."""
+        if not observation.discussion_statements:
+            return "DISCUSSION: This is the first statement in this discussion phase."
+
+        # Show recent statements (last 10 to avoid token bloat)
+        recent = observation.discussion_statements[-10:]
+        statements_text = "\n".join(
+            [
+                (
+                    f"- {stmt.speaker_id} ({stmt.phase.value}, "
+                    f'Round {stmt.round_number}): "{stmt.message}"'
+                )
+                for stmt in recent
+            ]
+        )
+
+        return f"""RECENT DISCUSSION:
+{statements_text}
+
+Consider these statements when crafting your response. You can agree, disagree,
+ask questions, or change the topic."""
 
     def _parse_json_response(self, response_text: str) -> dict[str, Any]:
         """Parse JSON from LLM response, handling markdown code blocks and text before JSON."""

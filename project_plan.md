@@ -220,21 +220,37 @@
 	- [x] Add `DiscussionRound` dataclass for structured turn-taking and statement tracking.
 	- [x] Extend `GameState` to track discussion history per phase.
 	- [x] Add discussion statements to `AgentObservation` for context in decision-making.
-- [ ] **Discussion Configuration**
-	- [ ] Add `DiscussionConfig` dataclass defining when discussions occur and turn limits.
-	- [ ] Define discussion opportunities: PRE_PROPOSAL, PRE_VOTE, POST_MISSION_RESULT, PRE_ASSASSINATION.
-	- [ ] Configure max statements per player per discussion phase.
-	- [ ] Add option to enable/disable discussions in `GameConfig`.
-- [ ] **Discussion Phase Logic**
-	- [ ] Implement discussion turn manager handling speaking order (round-robin or leader-first).
-	- [ ] Add validation for discussion timing (only during configured phases).
-	- [ ] Track which players have spoken in current discussion round.
-	- [ ] Implement discussion timeout/turn limit enforcement.
-- [ ] **Human Player Discussion Interface**
-	- [ ] Add CLI prompt allowing human players to make statements during discussion.
-	- [ ] Support optional participation (players can skip/pass their turn).
-	- [ ] Display all statements to all players in real-time.
-	- [ ] Show discussion history at appropriate game points.
+- [x] **Discussion Configuration** ✅
+	- [x] Add `DiscussionConfig` dataclass defining when discussions occur and turn limits.
+	- [x] Define discussion opportunities: PRE_PROPOSAL, PRE_VOTE, POST_MISSION_RESULT, PRE_ASSASSINATION.
+	- [x] Configure max statements per player per discussion phase.
+	- [x] Add option to enable/disable discussions in `GameConfig`.
+- [x] **Discussion Phase Logic** ✅
+	- [x] Implement discussion turn manager handling speaking order (round-robin).
+	- [x] Add validation for discussion timing (only during configured phases).
+	- [x] Track which players have spoken in current discussion round.
+	- [x] Implement discussion turn limit enforcement.
+- [x] **Human Player Discussion Interface** ✅
+	- [x] Add CLI prompt allowing human players to make statements during discussion.
+	- [x] Support optional participation (players can skip/pass their turn).
+	- [x] Display all statements to all players in real-time.
+	- [x] Show discussion history at appropriate game points.
+- [x] **Discussion Flow Integration** ✅
+	- [x] Insert discussion phase before team proposals (leader explains intentions).
+	- [x] Insert discussion phase before votes (debate proposed team).
+	- [x] Insert discussion phase after mission results (analyze what happened).
+	- [x] Insert discussion phase before assassination (final accusations/defenses).
+	- [x] Ensure smooth transitions between discussion and action phases.
+- [x] **Event Logging & Persistence** ✅
+	- [x] Add `DISCUSSION_STATEMENT` event type to event log.
+	- [x] Record all statements with player ID, timestamp, and game context.
+	- [x] Mark all discussion as public visibility (accessible to all players).
+	- [x] Include discussion transcript in interaction log.
+- [x] **Testing & Validation** ✅
+	- [x] Unit tests for discussion data models and turn management.
+	- [x] Test human-only discussion flows in CLI.
+	- [x] Validate discussion history properly surfaces in observations.
+	- [x] Test skip/pass functionality for optional participation.
 - [ ] **Agent Discussion Interface**
 	- [ ] Add `make_statement()` method to agent interface/LLM client.
 	- [ ] Create discussion prompts including game context, recent events, and prior statements.
@@ -245,24 +261,9 @@
 	- [ ] Provide context on what just happened (mission result, vote pattern, proposal).
 	- [ ] Suggest discussion topics: suspicions, defenses, voting rationale, team justifications.
 	- [ ] Add examples of good vs poor discussion for each role type.
-- [ ] **Discussion Flow Integration**
-	- [ ] Insert discussion phase before team proposals (leader explains intentions).
-	- [ ] Insert discussion phase before votes (debate proposed team).
-	- [ ] Insert discussion phase after mission results (analyze what happened).
-	- [ ] Insert discussion phase before assassination (final accusations/defenses).
-	- [ ] Ensure smooth transitions between discussion and action phases.
-- [ ] **Event Logging & Persistence**
-	- [ ] Add `DISCUSSION_STATEMENT` event type to event log.
-	- [ ] Record all statements with player ID, timestamp, and game context.
-	- [ ] Mark all discussion as public visibility (accessible to all players).
-	- [ ] Include discussion transcript in interaction log.
-- [ ] **Testing & Validation**
-	- [ ] Unit tests for discussion data models and turn management.
-	- [ ] Test human-only discussion flows in CLI.
+- [ ] **Final Integration & Testing**
 	- [ ] Test agent-only discussion with mocked LLM responses.
 	- [ ] Test mixed human/agent discussions.
-	- [ ] Validate discussion history properly surfaces in observations.
-	- [ ] Test skip/pass functionality for optional participation.
 	- [ ] Integration tests with full game including all discussion phases.
 
 ### Phase 13: Agent Memory & Strategy ✅

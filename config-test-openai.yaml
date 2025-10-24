@@ -2,7 +2,7 @@
 # Uses OpenAI's GPT-5 Nano model via official API
 
 players:
-  - name: You
+  - name: Matt
     type: human
   
   - name: Alice
