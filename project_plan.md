@@ -215,26 +215,55 @@
 	- Test mixed human/agent games.
 
 ### Phase 12: Agent Communication & Discussion
-- [ ] **Discussion Phase Design**
-	- Define when discussion occurs (pre-proposal, pre-vote, post-mission).
-	- Determine discussion turn order and length limits.
-	- Design prompts for generating statements vs responding to questions.
-- [ ] **Statement Generation**
-	- Agents generate statements about strategy, suspicions, defenses.
-	- Capture and log statements to transcript with appropriate visibility.
-	- Present agent statements to other players (human and agent).
-- [ ] **Question/Response Mechanic**
-	- Allow players (human or agent) to direct questions to specific players.
-	- Agent responders receive question context and generate answers.
-	- Track conversation threads for coherent multi-turn exchanges.
-- [ ] **CLI Integration**
-	- Display agent statements in CLI output.
-	- Prompt human players for optional statements during discussion.
-	- Show agent-to-agent conversations in real-time.
-- [ ] **Integration Tests**
-	- Test discussion phases with agent-generated content.
-	- Validate turn-taking and coherence of conversations.
-	- Ensure visibility rules respected in multi-agent discussions.
+- [ ] **Discussion Data Model** 
+	- [ ] Create `DiscussionStatement` dataclass capturing speaker, message, timestamp, round/phase context.
+	- [ ] Add `DiscussionTurn` dataclass for structured turn-taking (speaker, statement, responses).
+	- [ ] Extend `GameState` to track discussion history per phase.
+	- [ ] Add discussion statements to `AgentObservation` for context in decision-making.
+- [ ] **Discussion Configuration**
+	- [ ] Add `DiscussionConfig` dataclass defining when discussions occur and turn limits.
+	- [ ] Define discussion opportunities: PRE_PROPOSAL, PRE_VOTE, POST_MISSION_RESULT, PRE_ASSASSINATION.
+	- [ ] Configure max statements per player per discussion phase.
+	- [ ] Add option to enable/disable discussions in `GameConfig`.
+- [ ] **Discussion Phase Logic**
+	- [ ] Implement discussion turn manager handling speaking order (round-robin or leader-first).
+	- [ ] Add validation for discussion timing (only during configured phases).
+	- [ ] Track which players have spoken in current discussion round.
+	- [ ] Implement discussion timeout/turn limit enforcement.
+- [ ] **Human Player Discussion Interface**
+	- [ ] Add CLI prompt allowing human players to make statements during discussion.
+	- [ ] Support optional participation (players can skip/pass their turn).
+	- [ ] Display all statements to all players in real-time.
+	- [ ] Show discussion history at appropriate game points.
+- [ ] **Agent Discussion Interface**
+	- [ ] Add `make_statement()` method to agent interface/LLM client.
+	- [ ] Create discussion prompts including game context, recent events, and prior statements.
+	- [ ] Parse agent-generated discussion statements with validation.
+	- [ ] Include discussion history in observation state for informed responses.
+- [ ] **Strategic Discussion Prompting**
+	- [ ] Design prompts encouraging role-appropriate behavior (Merlin subtlety, evil misdirection).
+	- [ ] Provide context on what just happened (mission result, vote pattern, proposal).
+	- [ ] Suggest discussion topics: suspicions, defenses, voting rationale, team justifications.
+	- [ ] Add examples of good vs poor discussion for each role type.
+- [ ] **Discussion Flow Integration**
+	- [ ] Insert discussion phase before team proposals (leader explains intentions).
+	- [ ] Insert discussion phase before votes (debate proposed team).
+	- [ ] Insert discussion phase after mission results (analyze what happened).
+	- [ ] Insert discussion phase before assassination (final accusations/defenses).
+	- [ ] Ensure smooth transitions between discussion and action phases.
+- [ ] **Event Logging & Persistence**
+	- [ ] Add `DISCUSSION_STATEMENT` event type to event log.
+	- [ ] Record all statements with player ID, timestamp, and game context.
+	- [ ] Mark all discussion as public visibility (accessible to all players).
+	- [ ] Include discussion transcript in interaction log.
+- [ ] **Testing & Validation**
+	- [ ] Unit tests for discussion data models and turn management.
+	- [ ] Test human-only discussion flows in CLI.
+	- [ ] Test agent-only discussion with mocked LLM responses.
+	- [ ] Test mixed human/agent discussions.
+	- [ ] Validate discussion history properly surfaces in observations.
+	- [ ] Test skip/pass functionality for optional participation.
+	- [ ] Integration tests with full game including all discussion phases.
 
 ### Phase 13: Agent Memory & Strategy ✅
 - [x] **Multi-LLM Provider Support** ✅
@@ -266,7 +295,7 @@
 	- Agents now properly use role knowledge and deduce from patterns.
 
 ## 6. Next Steps
-1. **Immediate**: Add discussion/communication layer for richer agent interactions.
+1. **In Progress**: Phase 12 - Add discussion/communication layer for richer agent interactions.
 2. Implement agent memory system to track conversation history and patterns.
 3. Add observability tools for analyzing agent decision quality.
 4. Experiment with different models and prompt strategies for optimal play.
