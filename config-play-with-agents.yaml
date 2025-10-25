@@ -1,5 +1,9 @@
 # Configuration for playing with 1 human and 4 AI agents
-# You'll play as a human alongside 4 Gemini-powered agents
+# You'll play as a human alongside 4 OpenAI GPT-5 agents
+#
+# To run this game:
+#   1. Set your API key: export OPENAI_API_KEY='your-key'
+#   2. Run: poetry run python run_openai_game.py config-play-with-agents.yaml
 
 game_config:
   num_players: 5

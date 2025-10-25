@@ -1,4 +1,9 @@
-"""LLM client for agent decision-making using Google's Gemini API."""
+"""LLM client for agent decision-making using Google's Gemini API.
+
+DEPRECATED: This Gemini-based client is deprecated. Use OpenAIClient instead.
+OpenAI's GPT-5 models provide better performance and automatic prompt caching
+for cost optimization.
+"""
 
 from __future__ import annotations
 
@@ -1288,6 +1293,10 @@ ask questions, or change the topic."""
 class GeminiClient(BaseLLMClient):
     """Google Gemini API client for agent decision-making.
 
+    .. deprecated::
+        This client is deprecated. Use :class:`OpenAIClient` instead for better
+        performance and automatic prompt caching.
+
     Uses Gemma 3 model for fast, cost-effective gameplay with higher rate limits.
     Requires GEMINI_API_KEY environment variable.
 
@@ -1304,7 +1313,16 @@ class GeminiClient(BaseLLMClient):
     request_delay: float = 2.1  # Delay between requests to stay under 30 RPM
 
     def __post_init__(self) -> None:
-        """Configure API client."""
+        """Configure API client and warn about deprecation."""
+        import warnings
+
+        warnings.warn(
+            "GeminiClient is deprecated. Use OpenAIClient with GPT-5 models instead "
+            "for better performance and automatic prompt caching.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         if self.api_key is None:
             self.api_key = os.environ.get("GEMINI_API_KEY")
         if not self.api_key:

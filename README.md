@@ -1,15 +1,60 @@
 # Avalon
 
-Avalon is a Python implementation of the Resistance: Avalon board game with support for **LLM-driven agent players** powered by Google's Gemini API. The game can be played with all humans, all agents, or any mix of both.
+# Avalon
+
+**LLM-driven agent players powered by OpenAI's GPT-5 models**
+
+The Resistance: Avalon implemented in Python with full rules support, designed for **tabletop play** (humans passing a laptop around), automated testing, and LLM-agent simulations.
+
+## Features
+
+- Official Avalon rules with special role support (Merlin, Percival, Morgana, Mordred, Oberon)
+- Fully automated game state machine (team proposals, votes, missions, assassination)
+- Mixed human and LLM agent players
+- Interactive CLI for tabletop play with hidden prompts for secrets
+- YAML configuration for scripted/automated games
+- Comprehensive test suite for rules validation
+- Event logging and game state persistence
+- OpenAI integration with automatic prompt caching for cost optimization
+
+## Quick Start
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd avalon
+
+# Install dependencies using Poetry
+poetry install
+```
+
+### Get an OpenAI API Key
+
+1. Visit [OpenAI API Keys](https://platform.openai.com/api-keys)
+2. Generate an API key
+3. Set the environment variable:
+
+```bash
+export OPENAI_API_KEY="your-api-key-here"
+```
+
+### Run Your First Game
+
+```bash
+# Run a game with agent players
+poetry run python run_openai_game.py config-test-openai.yaml
 
 ## Features
 
 - **Complete Avalon Game Engine**: Team proposals, voting, missions, assassination, all special roles
-- **LLM Agent Players**: AI agents powered by Gemini 2.0 Flash that can play strategically
+- **LLM Agent Players**: AI agents powered by OpenAI GPT-5 models that can play strategically
 - **Mixed Games**: Seamlessly combine human and agent players
 - **YAML Configuration**: Configure games via config files
 - **Interactive CLI**: Play via console with hidden prompts for secret decisions
 - **Comprehensive Testing**: 97+ tests covering all game mechanics
+- **Automatic Prompt Caching**: Cost optimization through OpenAI's built-in prompt caching
 
 ## Quick Start
 
@@ -28,48 +73,20 @@ The CLI will prompt for player count, optional roles, and player names.
 
 ### Play with Agent Players
 
-1. Get a Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey)
-2. Set the environment variable:
+1. Set your OpenAI API key:
    ```bash
-   export GEMINI_API_KEY="your-api-key-here"
+   export OPENAI_API_KEY="your-api-key-here"
    ```
-3. Create a config file (or use `config-agents.yaml`):
-   ```yaml
-   players:
-     - name: Alice
-       type: human
-     - name: BobBot
-       type: agent
-     - name: CarolBot
-       type: agent
-     - name: DaveBot
-       type: agent
-     - name: EveBot
-       type: agent
-   
-   optional_roles:
-     - percival
-     - morgana
-   
-   random_seed: 42
-   ```
-4. Run with the config (choose one):
-   
-   Using the helper script (recommended):
+2. Run with a config file:
    ```bash
-   poetry run python run_agent_game.py config-agents.yaml
-   ```
-   
-   Or using the main module:
-   ```bash
-   poetry run python -m avalon.interaction --config config-agents.yaml
+   poetry run python run_openai_game.py config-test-openai.yaml
    ```
 
 Agents will automatically make decisions with reasoning displayed in the CLI.
 
 ## Agent Players
 
-Agent players use Google's Gemini 2.0 Flash model to:
+Agent players use OpenAI's GPT-5 models to:
 - **Propose teams** as mission leaders
 - **Vote** on team proposals with strategic reasoning
 - **Execute missions** (playing success or fail cards based on alignment)
@@ -83,7 +100,7 @@ Agent players use Google's Gemini 2.0 Flash model to:
    - Public game history (votes, mission results)
    - Current phase and mission requirements
 
-2. **LLM Decision-Making**: The agent's observation is serialized into a natural language prompt, sent to Gemini, and the structured JSON response is parsed into game actions.
+2. **LLM Decision-Making**: The agent's observation is serialized into a natural language prompt, sent to OpenAI, and the structured JSON response is parsed into game actions.
 
 3. **Validation & Fallback**: Invalid agent responses trigger fallback behaviors or human intervention.
 
@@ -187,18 +204,23 @@ poetry run pre-commit install
 ### Agent System
 
 - **`avalon.agents`**: Agent interfaces, observation state, action schemas
-- **`avalon.llm_client`**: Gemini API client with prompt construction
+- **`avalon.openai_client`**: OpenAI API client with automatic prompt caching
 - **`avalon.agent_manager`**: Coordinates LLM clients with agent players
 - **`avalon.mock_llm_client`**: Mock client for deterministic testing
 
 ### Data Flow
 
 ```
-Config/Setup → GameState → AgentManager → LLMClient → Gemini API
+Config/Setup → GameState → AgentManager → OpenAIClient → OpenAI API (GPT-5)
                    ↓
               Observation (filtered game state)
                    ↓
-              Prompt Construction
+              Prompt Construction (auto-cached if >1024 tokens)
+                   ↓
+              LLM Response → Parsed Action
+                   ↓
+              Game State Update
+```
                    ↓
               LLM Response → Parsed Action
                    ↓
@@ -207,24 +229,24 @@ Config/Setup → GameState → AgentManager → LLMClient → Gemini API
 
 ## Project Status
 
-✅ **Phase 10: LLM Agent Foundation** - Complete
+**Phase 10: LLM Agent Foundation** - Complete
   - Player type designation
   - Agent interfaces and observation state
-  - Gemini API integration
+  - OpenAI API integration with automatic prompt caching
   - Mock client for testing
 
-✅ **Phase 11: Agent Decision Integration** - Complete
+**Phase 11: Agent Decision Integration** - Complete
   - Team proposal, voting, mission execution, assassination
   - Mixed human/agent game support
   - Full integration tests
 
-🔄 **Phase 12: Communication & Discussion**
+**Phase 12: Communication & Discussion** - In Progress
   - Document transcript schemas and agent integration points covering visibility-filtered event feeds.
   - Thread event visibility metadata through interaction outputs to surface personalised historical views.
   - Multi-turn agent conversations
   - Strategic discussion phases
   
-🔄 **Phase 13: Memory & Strategy** - Optional
+**Phase 13: Memory & Strategy** - Optional
   - Conversation history tracking
   - Advanced prompt engineering
   - Role-specific strategies
@@ -233,18 +255,16 @@ Config/Setup → GameState → AgentManager → LLMClient → Gemini API
 
 ### Running a Game
 
-Use one of the game runners to start a game:
-
 ```bash
-# OpenAI with GPT-5 Nano
+# Run a game with OpenAI GPT-5 models (recommended)
 poetry run python run_openai_game.py config-test-openai.yaml
-
-# OpenRouter with various models
-poetry run python run_openrouter_game.py config-test-openrouter.yaml
-
-# Gemini (original implementation)
-poetry run python run_agent_game.py config-agents.yaml
 ```
+
+### Prompt Caching
+
+OpenAI automatically caches prompts over 1024 tokens, reducing costs by 50% for cached tokens. No configuration required - it works automatically with the `OpenAIClient`.
+
+Cache is valid for 5-10 minutes and automatically cleared within 1 hour. Perfect for game sessions with multiple agent decisions.
 
 ### Custom LLM Client
 
@@ -272,7 +292,3 @@ class CustomLLMClient:
 3. Make your changes with tests
 4. Run the test suite and linters
 5. Submit a pull request
-
-## License
-
-MIT License - See LICENSE file for details

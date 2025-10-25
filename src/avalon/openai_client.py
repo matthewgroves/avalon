@@ -19,6 +19,12 @@ class OpenAIClient(BaseLLMClient):
     Uses OpenAI's API to access GPT models.
     Requires OPENAI_API_KEY environment variable.
 
+    Prompt Caching:
+    OpenAI automatically applies prompt caching for prompts longer than 1,024 tokens.
+    The API caches the longest prefix of a prompt that has been previously seen,
+    offering a 50% discount on cached tokens. Cache is valid for 5-10 minutes of
+    inactivity and always cleared within 1 hour. No code changes needed - it's automatic!
+
     Inherits all prompt building and decision logic from BaseLLMClient,
     only implementing the API-specific __post_init__ and _generate_text methods.
     """
@@ -28,6 +34,7 @@ class OpenAIClient(BaseLLMClient):
     api_key: str | None = None
     max_retries: int = 3
     base_retry_delay: float = 1.0
+    enable_cache_logging: bool = False  # Set to True to log cache hit statistics
 
     def __post_init__(self) -> None:
         """Configure API client."""
@@ -66,6 +73,20 @@ class OpenAIClient(BaseLLMClient):
                 # For reasoning models like GPT-5, check for truncated responses
                 choice = result["choices"][0]
                 content = choice["message"]["content"]
+
+                # Log cache usage if enabled (helps monitor prompt caching effectiveness)
+                if self.enable_cache_logging and "usage" in result:
+                    usage = result["usage"]
+                    if "prompt_tokens_details" in usage:
+                        details = usage["prompt_tokens_details"]
+                        cached = details.get("cached_tokens", 0)
+                        total_prompt = usage.get("prompt_tokens", 0)
+                        if cached > 0:
+                            cache_percent = (cached / total_prompt * 100) if total_prompt > 0 else 0
+                            print(
+                                f"Cache hit: {cached}/{total_prompt} prompt tokens "
+                                f"({cache_percent:.1f}%) - 50% cost savings on cached tokens"
+                            )
 
                 # Debug: Check for empty responses
                 if not content or not content.strip():

@@ -1,9 +1,9 @@
 # Example configuration for a fully automated agent game
-# All 5 players are LLM agents using Gemini 2.0 Flash
+# All 5 players are LLM agents using OpenAI GPT-5 models
 #
 # To run this game:
-#   1. Set your API key: export GEMINI_API_KEY='your-key'
-#   2. Run: poetry run python run_agent_game.py config-all-agents.yaml
+#   1. Set your API key: export OPENAI_API_KEY='your-key'
+#   2. Run: poetry run python run_openai_game.py config-all-agents.yaml
 #
 # Watch as the agents:
 #   - Propose teams based on their knowledge and deductions

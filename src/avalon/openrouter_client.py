@@ -1,4 +1,9 @@
-"""OpenRouter LLM client for agent decision-making."""
+"""OpenRouter LLM client for agent decision-making.
+
+DEPRECATED: This OpenRouter-based client is deprecated. Use OpenAIClient instead.
+OpenAI's GPT-5 models provide better performance and automatic prompt caching
+for cost optimization.
+"""
 
 from __future__ import annotations
 
@@ -16,6 +21,10 @@ from .llm_client import BaseLLMClient
 class OpenRouterClient(BaseLLMClient):
     """OpenRouter API client for agent decision-making.
 
+    .. deprecated::
+        This client is deprecated. Use :class:`OpenAIClient` instead for better
+        performance and automatic prompt caching.
+
     Uses OpenRouter's API to access various LLM models without strict rate limits.
     Requires OPENROUTER_API_KEY environment variable.
 
@@ -32,7 +41,16 @@ class OpenRouterClient(BaseLLMClient):
     site_name: str = "Avalon Game"
 
     def __post_init__(self) -> None:
-        """Configure API client."""
+        """Configure API client and warn about deprecation."""
+        import warnings
+
+        warnings.warn(
+            "OpenRouterClient is deprecated. Use OpenAIClient with GPT-5 models instead "
+            "for better performance and automatic prompt caching.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         if self.api_key is None:
             # Try both OPENROUTER_TOKEN and OPENROUTER_API_KEY
             self.api_key = os.environ.get("OPENROUTER_TOKEN") or os.environ.get(
