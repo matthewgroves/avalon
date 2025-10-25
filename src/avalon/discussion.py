@@ -48,7 +48,8 @@ class DiscussionConfig:
     post_mission_enabled: bool = True
     pre_assassination_enabled: bool = True
     # Maximum statements per player per discussion phase (None = unlimited)
-    max_statements_per_phase: int | None = 2
+    # Reduced to 1 to keep discussion concise and avoid repetitive rounds.
+    max_statements_per_phase: int | None = 1
     # Allow players to pass/skip their turn
     allow_pass: bool = True
 

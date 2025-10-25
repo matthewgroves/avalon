@@ -358,6 +358,19 @@ AVOID THESE COMMON MISTAKES:
                         for pid in group
                     ]
                     lines.append(f"  - Ambiguous group: {', '.join(group_names)}")
+        # Include the agent's own past mission actions (private knowledge)
+        if getattr(observation, "my_mission_actions", None):
+            lines.append("")
+            lines.append("Your past mission submissions (private):")
+            for rnd, att, you_succeeded in observation.my_mission_actions:
+                status = "played SUCCESS" if you_succeeded else "played FAIL"
+                lines.append(f"  - Round {rnd} Attempt {att}: you {status}")
+            lines.append("")
+            lines.append(
+                "Deduction hint: If you played SUCCESS on a mission that later FAILED, "
+                "then at least one other teammate on that mission must have played FAIL. "
+                "Those teammates are high-priority suspects for rejection on subsequent proposals."
+            )
 
         # Current team if proposed
         if observation.current_team:
@@ -421,6 +434,23 @@ AVOID THESE COMMON MISTAKES:
                     observation.all_player_ids.index(player_id)
                 ]
                 lines.append(f"  - {player_name} ({decision_type}): {statement}")
+
+        # Discussion statements from all players
+        if observation.discussion_statements:
+            lines.append("")
+            lines.append("DISCUSSION STATEMENTS (public conversation):")
+            lines.append("(These are actual statements players made during discussion phases)")
+            # Show recent discussion statements (last 15 to capture recent context)
+            recent_discussion = observation.discussion_statements[-15:]
+            for stmt in recent_discussion:
+                speaker_name = observation.all_player_names[
+                    observation.all_player_ids.index(stmt.speaker_id)
+                ]
+                phase_name = stmt.phase.value.replace("_", " ").title()
+                lines.append(
+                    f"  - {speaker_name} ({phase_name}, Round {stmt.round_number}): "
+                    f'"{stmt.message}"'
+                )
 
         return "\n".join(lines)
 
@@ -640,14 +670,21 @@ STRATEGIC VOTING CONSIDERATIONS:
 
 ALIGNMENT-SPECIFIC STRATEGY:
 If you are RESISTANCE:
+- Early game (attempts 1-3): BE WILLING TO REJECT suspicious teams
+  * Rejecting forces new information and better team compositions
+  * Don't approve teams just because "maybe they'll succeed" - use your rejections
+  * Look for players on multiple failed missions - reject teams that include them
+  * Example: If Alice was on 2 failed missions, reject teams with Alice on them
 - Rejections 1-4: Use strategically to force better team compositions
   * Reject teams with suspicious players or patterns
   * Force information by seeing who else leaders trust
   * The auto-fail won't happen because everyone approves on 5th attempt
+  * DON'T be afraid to reject - it's your primary tool for information gathering
 - At 4 rejections (5th attempt): You MUST approve or you LOSE THE ENTIRE GAME
   * This is the ONLY truly dangerous rejection
   * Any team is better than instant defeat
 - Strategic approach: Be selective on attempts 1-4, always approve on attempt 5
+- KEY INSIGHT: Resistance players should reject MORE in early attempts, not less
 
 If you are EVIL:
 - Early rejections (0-3): Create pressure, force bad teams, approach 5th attempt
@@ -659,14 +696,19 @@ If you are EVIL:
 - At 5th attempt: Vote approve to maintain cover (the team will pass regardless)
 
 WHEN TO REJECT (if Resistance):
+- Team includes player(s) who appeared on MULTIPLE failed missions (very suspicious!)
 - Team has too many known evil players (and it's NOT the 5th attempt)
 - You have knowledge (e.g., Merlin) that team will certainly fail (NOT 5th attempt)
+- You personally played SUCCESS on a past mission that failed, and your teammate from that 
+  mission is on this new proposed team (they likely caused the failure!)
+- It's attempts 1-4 and you have ANY reasonable suspicion about team composition
 - NEVER EVER on 5th attempt - rejecting = instant game loss
 
 WHEN TO APPROVE (if Resistance):
 - It's the 5th attempt (you have no choice - must approve or lose)
-- Team avoids repeatedly suspicious players
+- Team avoids repeatedly suspicious players AND has strong evidence of trustworthiness
 - You're on the team and can ensure success
+- DON'T approve just because "it might work" - demand evidence of trustworthiness first
 
 WHEN TO APPROVE (if Evil):
 - It's the 5th attempt (rejecting reveals you for no benefit - team passes anyway)
@@ -691,6 +733,20 @@ Public Reasoning (VISIBLE TO ALL PLAYERS):
 - Can include strategic misdirection or partial truths
 - Keep it concise (1-2 sentences max) and unique to your perspective
 
+!!!!! CRITICAL - CONSISTENCY WITH DISCUSSION !!!!!
+If you said something in the PRE_VOTE discussion about this team, your vote MUST be consistent:
+- If you said "I oppose", "I'm opposed", "I reject", "I object" → you MUST vote REJECT
+- If you said "I support", "I'll approve", "I trust" → you MUST vote APPROVE
+- Your vote and your discussion statement must align - contradicting yourself is suspicious
+- Other players will notice if you say one thing and vote differently
+- BE CONSISTENT or you'll look like you're lying or evil
+
+Examples:
+- WRONG: Discussion says "I oppose this team" but vote is APPROVE
+- CORRECT: Discussion says "I oppose this team" and vote is REJECT
+- WRONG: Discussion says "I'll vote yes" but vote is REJECT
+- CORRECT: Discussion says "I'll vote yes" and vote is APPROVE
+
 !!!!! CRITICAL - PUBLIC REASONING SECURITY !!!!!
 NEVER REVEAL YOUR ALIGNMENT IN PUBLIC REASONING:
 - WRONG: "I'm evil so I'll..."
@@ -708,6 +764,7 @@ Before responding, verify:
 - Do your conclusions follow logically from the evidence?
 - Does your reasoning contradict any observable facts?
 - If you know players are evil, are you acting on that knowledge?
+- Did you check your recent discussion statements? Is your vote consistent with what you said?
 
 Respond with a JSON object with BOTH true and public reasoning:
 {{
@@ -1033,6 +1090,35 @@ EXAMPLES OF CORRECT vs WRONG:
 - WRONG: "{observation.display_name} will watch carefully"
 - CORRECT: "I'll watch carefully"
 
+!!!!! CRITICAL - RESPONDING TO ACCUSATIONS !!!!!
+When OTHER players mention "{observation.display_name}", they are talking about YOU.
+You MUST respond in FIRST PERSON and DEFEND YOURSELF:
+
+If someone says: "{observation.display_name} is suspicious" or "avoid {observation.display_name}"
+- WRONG: "I'm wary of {observation.display_name} too"
+- WRONG: "I agree we should be cautious about {observation.display_name}"
+- WRONG: "I think {observation.display_name} (myself) is trustworthy"
+- WRONG: "{observation.display_name} and Charlie should both be avoided"
+
+YOU CANNOT BE SUSPICIOUS OF YOURSELF. YOU CANNOT AGREE TO AVOID YOURSELF.
+
+CORRECT responses when accused:
+- "That's not fair - I've been helping the team all along!"
+- "Why are you accusing me? What evidence do you have?"
+- "I'm trustworthy. I should definitely be on this team."
+- "That's a false accusation. I think YOU'RE the suspicious one."
+- "I strongly disagree. I haven't done anything wrong."
+
+DEFEND YOURSELF AGGRESSIVELY:
+- If accused, ALWAYS push back strongly (even if you ARE evil!)
+- Evil players should defend themselves just as strongly as good players
+- Never admit fault or agree with suspicions against you
+- Redirect suspicion to your accusers or other players
+- Act offended, indignant, or confident in your innocence
+
+REMEMBER: When someone mentions your name ({observation.display_name}), they mean YOU.
+Respond with "I" and "me", NEVER with your own name.
+
 CURRENT GAME MECHANICS:
 - The LEADER this round is: {leader_name} ({observation.current_leader_id})
 - Only the LEADER proposes teams - other players discuss but don't propose
@@ -1096,6 +1182,9 @@ Before responding, verify:
 - If you mention {observation.display_name}, you are talking about yourself
   in 3rd person - WRONG!
 - Are you speaking as YOURSELF, not referring to yourself as another player?
+- If someone accused YOU ({observation.display_name}), did you DEFEND yourself
+  strongly? NEVER say "I'm wary of {observation.display_name}" - that's YOU!
+- If accused, did you push back aggressively? (Good AND evil players defend themselves!)
 - If PRE_PROPOSAL: Are you making suggestions, not proposing?
   (only {leader_name} proposes)
 - If PRE_VOTE: Are you referring to the ACTUAL proposed team shown
@@ -1104,8 +1193,16 @@ Before responding, verify:
 - Does your statement reference actual game events, not made-up information?
 - Are you being appropriately subtle about your role knowledge?
 - Read your message: does it contain your own name ({observation.display_name})?
-  If YES, rewrite using "I"!
+  If YES, you're talking about yourself in 3rd person - REWRITE using "I"!
 - Is your message consistent with what you've said before?
+- If your next public message would be nearly identical to your most recent
+  public statement in this same phase, DO NOT repeat it. Instead respond with
+  an empty message or the single word "pass" to skip your turn and avoid
+  repetition. This conserves tokens and keeps discussion useful.
+  Examples:
+  * WRONG (repeating): "I think Bob is suspicious. I think Bob is suspicious."
+  * CORRECT (pass): "" or "pass"
+
 
 Respond with a JSON object:
 {{

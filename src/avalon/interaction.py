@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import difflib
 from dataclasses import dataclass
 from enum import Enum
 from getpass import getpass
@@ -380,7 +381,11 @@ def _handle_team_proposal(
                 )
         try:
             state.propose_team(leader.player_id, team)
-            _write(backend, log, f"Proposed team: {', '.join(team)}")
+            # Format team with both IDs and names for clarity
+            team_display = ", ".join(
+                f"{pid} ({state.players_by_id[pid].display_name})" for pid in team
+            )
+            _write(backend, log, f"Proposed team: {team_display}")
             return
         except InvalidActionError as exc:
             _write(backend, log, f"Agent error: {exc}. Falling back to human input.")
@@ -398,7 +403,11 @@ def _handle_team_proposal(
             continue
         try:
             state.propose_team(leader.player_id, team)
-            _write(backend, log, f"Proposed team: {', '.join(team)}")
+            # Format team with both IDs and names for clarity
+            team_display = ", ".join(
+                f"{pid} ({state.players_by_id[pid].display_name})" for pid in team
+            )
+            _write(backend, log, f"Proposed team: {team_display}")
             break
         except InvalidActionError as exc:
             _write(backend, log, f"Invalid team: {exc}")
@@ -695,6 +704,34 @@ def _handle_discussion(
                     if not response.message or response.message.strip() == "":
                         _write(backend, log, f"  {player.display_name} passes.")
                         continue
+
+                    # Fallback deduplication: if the agent's new message is nearly
+                    # identical to their previous public statement in this discussion,
+                    # treat it as a pass to avoid repetition.
+                    try:
+                        prev_statements = (
+                            state.current_discussion.get_statements_by_player(player.player_id)
+                            if state.current_discussion
+                            else []
+                        )
+                        if prev_statements:
+                            last_msg = prev_statements[-1].message or ""
+                            # Normalize and compare
+                            a = " ".join(last_msg.lower().split())
+                            b = " ".join(response.message.lower().split())
+                            similarity = difflib.SequenceMatcher(None, a, b).ratio()
+                            # If very similar, treat as pass (threshold = 0.85)
+                            if similarity >= 0.85:
+                                _write(
+                                    backend,
+                                    log,
+                                    f"  {player.display_name} passes "
+                                    f"(redundant: similarity={similarity:.2f}).",
+                                )
+                                continue
+                    except Exception:
+                        # Be conservative: if any error occurs, fall back to adding statement
+                        pass
 
                     # Create and add statement
                     statement = DiscussionStatement(

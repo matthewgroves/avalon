@@ -48,7 +48,7 @@ def test_discussion_config_defaults() -> None:
     assert config.pre_vote_enabled is True
     assert config.post_mission_enabled is True
     assert config.pre_assassination_enabled is True
-    assert config.max_statements_per_phase == 2
+    assert config.max_statements_per_phase == 1
     assert config.allow_pass is True
 
 

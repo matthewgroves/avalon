@@ -65,6 +65,9 @@ class AgentObservation:
 
     # Discussion statements from all players (public knowledge)
     discussion_statements: Tuple[DiscussionStatement, ...] = ()
+    # Your private mission actions: list of (round_number, attempt_number, you_played_success)
+    # This lets agents reason about missions they personally participated in.
+    my_mission_actions: Tuple[Tuple[int, int, bool], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,6 +237,18 @@ def build_observation(
         required_fail_count=required_fail_count,
         public_statements=public_statements,
         discussion_statements=game_state.all_discussion_statements,
+        # Build list of this player's private mission actions
+        my_mission_actions=tuple(
+            (
+                record.round_number,
+                record.attempt_number,
+                any(
+                    a.player_id == player_id and a.decision.name == "SUCCESS"
+                    for a in record.actions
+                ),
+            )
+            for record in game_state.mission_history
+        ),
     )
 
 

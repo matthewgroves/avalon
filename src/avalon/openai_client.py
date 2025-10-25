@@ -23,8 +23,8 @@ class OpenAIClient(BaseLLMClient):
     only implementing the API-specific __post_init__ and _generate_text methods.
     """
 
-    model_name: str = "gpt-5-nano-2025-08-07"
-    temperature: float = 1.0  # gpt-5-nano only supports temperature=1
+    model_name: str = "gpt-5-mini-2025-08-07"
+    temperature: float = 1.0
     api_key: str | None = None
     max_retries: int = 3
     base_retry_delay: float = 1.0
@@ -63,8 +63,7 @@ class OpenAIClient(BaseLLMClient):
                 response.raise_for_status()
                 result = response.json()
 
-                # For reasoning models like gpt-5-nano, the actual output might be limited
-                # We need much higher max_completion_tokens for these models
+                # For reasoning models like GPT-5, check for truncated responses
                 choice = result["choices"][0]
                 content = choice["message"]["content"]
 
